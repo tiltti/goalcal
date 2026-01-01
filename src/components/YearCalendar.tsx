@@ -98,10 +98,13 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   }, [loading])
 
   const handleSave = async (date: string, goals: Record<string, boolean>) => {
+    if (!config) return
+
     try {
       // Check old status before save
       const oldEntry = entries[date]
-      const oldStatus = oldEntry ? getGoalStatus(oldEntry, threshold) : null
+      const currentThreshold = config.colorThreshold
+      const oldStatus = oldEntry ? getGoalStatus(oldEntry, currentThreshold) : null
 
       const res = await fetch('/api/days', {
         method: 'POST',
@@ -114,7 +117,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
       const saved = await res.json()
 
       // Check new status
-      const newStatus = getGoalStatus(saved, threshold)
+      const newStatus = getGoalStatus(saved, currentThreshold)
 
       // Trigger confetti if became green!
       if (newStatus === 'green' && oldStatus !== 'green') {
@@ -299,6 +302,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
                       date={date}
                       entry={entries[dateStr] || null}
                       threshold={threshold}
+                      totalGoals={config.goals.length}
                       isToday={isToday}
                       isFuture={isFuture}
                       onClick={() => (!isFuture || isDev) && setSelectedDate(date)}
@@ -314,6 +318,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
           year={year}
           entries={entries}
           threshold={threshold}
+          totalGoals={config.goals.length}
           onDayClick={(date) => {
             const isFuture = date > today
             if (!isFuture || isDev) setSelectedDate(date)

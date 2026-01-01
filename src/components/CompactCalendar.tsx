@@ -6,6 +6,7 @@ interface CompactCalendarProps {
   year: number
   entries: Record<string, DayEntry>
   threshold: ColorThreshold
+  totalGoals: number
   onDayClick: (date: Date) => void
 }
 
@@ -16,7 +17,7 @@ const statusColors: Record<GoalStatus, string> = {
   green: 'bg-emerald-500/80 text-white hover:bg-emerald-500',
 }
 
-export function CompactCalendar({ year, entries, threshold, onDayClick }: CompactCalendarProps) {
+export function CompactCalendar({ year, entries, threshold, totalGoals, onDayClick }: CompactCalendarProps) {
   const allDays = getDaysInYear(year)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -32,6 +33,10 @@ export function CompactCalendar({ year, entries, threshold, onDayClick }: Compac
           const isToday = date.getTime() === today.getTime()
           const dayOfYear = index + 1
 
+          // Check if ALL goals are completed (perfect day)
+          const completedCount = entry ? Object.values(entry.goals).filter(Boolean).length : 0
+          const isPerfect = completedCount === totalGoals && totalGoals > 0
+
           return (
             <button
               key={dateStr}
@@ -45,6 +50,7 @@ export function CompactCalendar({ year, entries, threshold, onDayClick }: Compac
                   : statusColors[status]
                 }
                 ${isToday ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-950' : ''}
+                ${isPerfect && !isFuture ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-950' : ''}
               `}
             >
               {dayOfYear}
