@@ -1,7 +1,21 @@
+/**
+ * ⚠️  LOCAL DEVELOPMENT ONLY - NEVER RUN ON PRODUCTION
+ * This script fills test data into local DynamoDB.
+ * It will FAIL if endpoint is not localhost (safety check).
+ */
+
 const { DynamoDBClient, BatchWriteItemCommand } = require('@aws-sdk/client-dynamodb');
 
+const ENDPOINT = 'http://localhost:8000';
+
+// Safety check: ensure we're only connecting to localhost
+if (!ENDPOINT.includes('localhost')) {
+  console.error('ERROR: This script can only run against localhost!');
+  process.exit(1);
+}
+
 const client = new DynamoDBClient({
-  endpoint: 'http://localhost:8000',
+  endpoint: ENDPOINT,
   region: 'eu-north-1',
   credentials: { accessKeyId: 'local', secretAccessKey: 'local' }
 });

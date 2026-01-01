@@ -3,6 +3,11 @@
 # Deploy 2026.tiltti.net to AWS
 # Usage: ./deploy_to_aws.sh [stage]
 # Stages: dev (default), production
+#
+# ⚠️  CRITICAL: NEVER DELETE PRODUCTION DATA
+# - This script only deploys, never removes
+# - To remove resources, use sst remove (NEVER on production!)
+# - Production DynamoDB table has deletion protection enabled
 
 set -e
 
