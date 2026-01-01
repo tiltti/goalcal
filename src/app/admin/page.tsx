@@ -2,10 +2,25 @@
 
 import { useState } from 'react'
 
+interface CalendarStats {
+  green: number
+  yellow: number
+  red: number
+  perfect: number
+  total: number
+}
+
+interface Goal {
+  id: string
+  name: string
+}
+
 interface Calendar {
   calendarId: string
   name: string
+  goals: Goal[]
   createdAt: string
+  stats: CalendarStats
 }
 
 export default function AdminPage() {
@@ -239,13 +254,13 @@ export default function AdminPage() {
         </div>
 
         {/* Existing calendars */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           {calendars.map((cal) => (
             <div
               key={cal.calendarId}
               className="bg-zinc-900 border border-zinc-700 rounded-xl p-4"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <span className="font-medium text-white">{cal.name}</span>
                   <span className="text-zinc-500 text-sm ml-2">/{cal.calendarId}</span>
@@ -293,6 +308,40 @@ export default function AdminPage() {
                     </>
                   )}
                 </div>
+              </div>
+
+              {/* Stats summary */}
+              <div className="flex flex-wrap gap-4 text-sm">
+                <span className="text-zinc-400">
+                  {cal.goals.length} tavoitetta
+                </span>
+                {cal.stats.total > 0 ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-zinc-300">{cal.stats.green}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                      <span className="text-zinc-300">{cal.stats.yellow}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                      <span className="text-zinc-300">{cal.stats.red}</span>
+                    </div>
+                    {cal.stats.perfect > 0 && (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 ring-1 ring-yellow-300" />
+                        <span className="text-yellow-400">{cal.stats.perfect} täydellistä</span>
+                      </div>
+                    )}
+                    <span className="text-zinc-500">
+                      ({Math.round(cal.stats.green / cal.stats.total * 100)}% vihreitä)
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500">Ei merkintöjä</span>
+                )}
               </div>
             </div>
           ))}

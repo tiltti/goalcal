@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCalendar, listCalendars, getCalendarConfig, updateCalendarConfig } from '@/lib/dynamodb'
+import { createCalendar, listCalendars, getCalendarConfig, updateCalendarConfig, getYearEntries } from '@/lib/dynamodb'
 import bcrypt from 'bcryptjs'
-import { Goal, ColorThreshold } from '@/lib/types'
+import { Goal, ColorThreshold, getGoalStatus } from '@/lib/types'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 
@@ -13,7 +13,7 @@ function verifyAdminAuth(request: NextRequest): boolean {
   return token === ADMIN_PASSWORD
 }
 
-// List all calendars (admin only)
+// List all calendars (admin only) with stats
 export async function GET(request: NextRequest) {
   if (!verifyAdminAuth(request)) {
     return NextResponse.json({ error: 'Ei oikeuksia' }, { status: 401 })
@@ -22,18 +22,38 @@ export async function GET(request: NextRequest) {
   try {
     const calendars = await listCalendars()
 
-    // Don't return password hashes
-    return NextResponse.json(
-      calendars.map((c) => ({
-        calendarId: c.calendarId,
-        name: c.name,
-        goals: c.goals,
-        colorThreshold: c.colorThreshold,
-        year: c.year,
-        createdAt: c.createdAt,
-        updatedAt: c.updatedAt
-      }))
+    // Fetch stats for each calendar
+    const calendarsWithStats = await Promise.all(
+      calendars.map(async (c) => {
+        const entries = await getYearEntries(c.calendarId, c.year)
+
+        // Calculate stats
+        const stats = { green: 0, yellow: 0, red: 0, perfect: 0, total: entries.length }
+        for (const entry of entries) {
+          const status = getGoalStatus(entry, c.colorThreshold)
+          if (status === 'green') stats.green++
+          else if (status === 'yellow') stats.yellow++
+          else if (status === 'red') stats.red++
+
+          // Check for perfect days (all goals completed)
+          const completed = Object.values(entry.goals).filter(Boolean).length
+          if (completed === c.goals.length) stats.perfect++
+        }
+
+        return {
+          calendarId: c.calendarId,
+          name: c.name,
+          goals: c.goals,
+          colorThreshold: c.colorThreshold,
+          year: c.year,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          stats
+        }
+      })
     )
+
+    return NextResponse.json(calendarsWithStats)
   } catch (error) {
     console.error('Admin GET error:', error)
     return NextResponse.json({ error: 'Virhe haettaessa kalentereita' }, { status: 500 })
