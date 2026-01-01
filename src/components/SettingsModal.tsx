@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Goal, ColorThreshold } from '@/lib/types'
 
 interface CalendarConfig {
@@ -17,12 +17,38 @@ interface SettingsModalProps {
   onClose: () => void
 }
 
+const MIN_GOALS = 2
+
 export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   const [name, setName] = useState(config.name)
   const [goals, setGoals] = useState<Goal[]>(config.goals)
   const [greenThreshold, setGreenThreshold] = useState(config.colorThreshold.green)
   const [yellowThreshold, setYellowThreshold] = useState(config.colorThreshold.yellow)
   const [saving, setSaving] = useState(false)
+
+  // Auto-adjust thresholds when goals count or green changes
+  useEffect(() => {
+    // Green can't exceed goal count
+    if (greenThreshold > goals.length) {
+      setGreenThreshold(goals.length)
+    }
+    // Green must be at least 1
+    if (greenThreshold < 1) {
+      setGreenThreshold(1)
+    }
+  }, [goals.length, greenThreshold])
+
+  useEffect(() => {
+    // Yellow must be less than green
+    // If green = 1, yellow must be 0 (no yellow zone possible)
+    const maxYellow = greenThreshold - 1
+    if (yellowThreshold > maxYellow) {
+      setYellowThreshold(Math.max(0, maxYellow))
+    }
+  }, [greenThreshold, yellowThreshold])
+
+  // Whether yellow zone is possible (green must be > 1)
+  const yellowPossible = greenThreshold > 1
 
   const handleAddGoal = () => {
     if (goals.length >= 10) return
@@ -31,7 +57,8 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   }
 
   const handleRemoveGoal = (id: string) => {
-    if (goals.length <= 1) return
+    // Minimum 2 goals required
+    if (goals.length <= MIN_GOALS) return
     setGoals(goals.filter((g) => g.id !== id))
   }
 
@@ -40,17 +67,23 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   }
 
   const handleSave = async () => {
-    // Validate
+    // Validate: need at least MIN_GOALS with names
     const validGoals = goals.filter((g) => g.name.trim())
-    if (validGoals.length === 0) return
+    if (validGoals.length < MIN_GOALS) return
+
+    // Ensure thresholds are valid
+    const finalGreen = Math.max(1, Math.min(greenThreshold, validGoals.length))
+    const finalYellow = finalGreen > 1
+      ? Math.max(1, Math.min(yellowThreshold, finalGreen - 1))
+      : 0 // No yellow zone when green = 1
 
     setSaving(true)
     await onSave({
       name: name.trim() || config.name,
       goals: validGoals,
       colorThreshold: {
-        green: Math.max(1, greenThreshold),
-        yellow: Math.max(0, Math.min(yellowThreshold, greenThreshold - 1))
+        green: finalGreen,
+        yellow: finalYellow
       }
     })
     setSaving(false)
@@ -81,7 +114,7 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
         {/* Goals */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-zinc-300 mb-2">
-            Tavoitteet ({goals.length}/10)
+            Tavoitteet ({goals.length}/10, min {MIN_GOALS})
           </label>
           <div className="space-y-2">
             {goals.map((goal, index) => (
@@ -93,7 +126,7 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
                   placeholder={`Tavoite ${index + 1}`}
                   className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
                 />
-                {goals.length > 1 && (
+                {goals.length > MIN_GOALS && (
                   <button
                     onClick={() => handleRemoveGoal(goal.id)}
                     className="px-3 py-2 text-red-400 hover:text-red-300 transition-colors"
@@ -152,39 +185,43 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
             </div>
 
             {/* Yellow threshold */}
-            <div className="flex items-center justify-between bg-zinc-800 rounded-lg p-3">
+            <div className={`flex items-center justify-between bg-zinc-800 rounded-lg p-3 ${!yellowPossible ? 'opacity-50' : ''}`}>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-yellow-500" />
+                <div className={`w-4 h-4 rounded-full ${yellowPossible ? 'bg-yellow-500' : 'bg-zinc-600'}`} />
                 <span className="text-zinc-300 text-sm">Keltainen</span>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setYellowThreshold(Math.max(0, yellowThreshold - 1))}
-                  disabled={yellowThreshold <= 0}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-700 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-600 transition-colors text-lg font-medium"
-                >
-                  −
-                </button>
-                <span className="w-16 text-center text-white font-medium">
-                  {yellowThreshold}/{goals.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setYellowThreshold(Math.min(greenThreshold - 1, yellowThreshold + 1))}
-                  disabled={yellowThreshold >= greenThreshold - 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-700 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-600 transition-colors text-lg font-medium"
-                >
-                  +
-                </button>
-              </div>
+              {yellowPossible ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setYellowThreshold(Math.max(1, yellowThreshold - 1))}
+                    disabled={yellowThreshold <= 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-700 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-600 transition-colors text-lg font-medium"
+                  >
+                    −
+                  </button>
+                  <span className="w-16 text-center text-white font-medium">
+                    {yellowThreshold}/{goals.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setYellowThreshold(Math.min(greenThreshold - 1, yellowThreshold + 1))}
+                    disabled={yellowThreshold >= greenThreshold - 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-700 text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-600 transition-colors text-lg font-medium"
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <span className="text-zinc-500 text-sm">Ei käytössä</span>
+              )}
             </div>
 
             {/* Red explanation */}
             <div className="flex items-center gap-2 px-3">
               <div className="w-4 h-4 rounded-full bg-red-500" />
               <span className="text-zinc-500 text-sm">
-                Punainen: alle {yellowThreshold} tavoitetta
+                Punainen: {yellowPossible ? `alle ${yellowThreshold} tavoitetta` : 'alle vihreän rajan'}
               </span>
             </div>
           </div>

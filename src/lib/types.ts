@@ -64,7 +64,8 @@ export function getGoalStatus(
   const completed = Object.values(entry.goals).filter(Boolean).length
 
   if (completed >= threshold.green) return 'green'
-  if (completed >= threshold.yellow) return 'yellow'
+  // yellow = 0 means "no yellow zone", skip directly to red
+  if (threshold.yellow > 0 && completed >= threshold.yellow) return 'yellow'
   if (completed === 0 && Object.keys(entry.goals).length === 0) return 'empty'
   return 'red'
 }
