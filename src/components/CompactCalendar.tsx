@@ -24,7 +24,8 @@ export function CompactCalendar({ year, entries, threshold, totalGoals, onDayCli
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex flex-wrap gap-1">
+      {/* gap-0.5 and smaller buttons on mobile, normal on md+ */}
+      <div className="flex flex-wrap gap-[3px] md:gap-1">
         {allDays.map((date, index) => {
           const dateStr = formatDate(date)
           const entry = entries[dateStr]
@@ -43,14 +44,15 @@ export function CompactCalendar({ year, entries, threshold, totalGoals, onDayCli
               onClick={() => !isFuture && onDayClick(date)}
               disabled={isFuture}
               className={`
-                w-8 h-8 rounded text-[10px] font-medium
+                w-[18px] h-[18px] md:w-8 md:h-8 rounded-sm md:rounded
+                text-[7px] md:text-[10px] font-medium
                 transition-all duration-150
                 ${isFuture
                   ? 'bg-zinc-900 text-zinc-700 cursor-not-allowed'
                   : statusColors[status]
                 }
-                ${isToday ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-950' : ''}
-                ${isPerfect && !isFuture ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-950' : ''}
+                ${isToday ? 'ring-1 md:ring-2 ring-white ring-offset-1 ring-offset-zinc-950' : ''}
+                ${isPerfect && !isFuture ? 'ring-1 md:ring-2 ring-yellow-400 ring-offset-1 ring-offset-zinc-950' : ''}
               `}
             >
               {dayOfYear}

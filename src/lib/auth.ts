@@ -1,10 +1,17 @@
 import { cookies } from 'next/headers'
+import versionData from '@/version.json'
 
 const SESSION_COOKIE = 'goalcal_session'
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me'
 
-// Simple session token: calendarId:timestamp:signature
-// For production, consider using jose or iron-session
+// Get major.minor version (e.g., "0.3" from "0.3.1")
+function getMajorMinorVersion(): string {
+  const parts = versionData.version.split('.')
+  return `${parts[0]}.${parts[1]}`
+}
+
+// Simple session token: calendarId:timestamp:version:signature
+// Session persists for 1 year, only invalidates on major.minor version change
 
 function sign(data: string): string {
   // Simple HMAC-like signature (for demo - use crypto.subtle in production)
@@ -23,7 +30,8 @@ function sign(data: string): string {
 
 export function createSessionToken(calendarId: string): string {
   const timestamp = Date.now()
-  const data = `${calendarId}:${timestamp}`
+  const version = getMajorMinorVersion()
+  const data = `${calendarId}:${timestamp}:${version}`
   const signature = sign(data)
   return Buffer.from(`${data}:${signature}`).toString('base64')
 }
@@ -31,21 +39,41 @@ export function createSessionToken(calendarId: string): string {
 export function verifySessionToken(token: string): string | null {
   try {
     const decoded = Buffer.from(token, 'base64').toString()
-    const [calendarId, timestamp, signature] = decoded.split(':')
+    const parts = decoded.split(':')
+
+    // Support both old format (calendarId:timestamp:signature) and new (calendarId:timestamp:version:signature)
+    let calendarId: string, timestamp: string, version: string | null, signature: string
+
+    if (parts.length === 3) {
+      // Old format - no version, will be invalidated
+      [calendarId, timestamp, signature] = parts
+      version = null
+    } else if (parts.length === 4) {
+      // New format with version
+      [calendarId, timestamp, version, signature] = parts
+    } else {
+      return null
+    }
 
     if (!calendarId || !timestamp || !signature) return null
 
     // Verify signature
-    const data = `${calendarId}:${timestamp}`
+    const data = version
+      ? `${calendarId}:${timestamp}:${version}`
+      : `${calendarId}:${timestamp}`
     const expectedSig = sign(data)
 
     if (signature !== expectedSig) return null
 
-    // Check expiration (30 days)
+    // Check expiration (1 year)
     const age = Date.now() - parseInt(timestamp)
-    const maxAge = 30 * 24 * 60 * 60 * 1000
+    const maxAge = 365 * 24 * 60 * 60 * 1000
 
     if (age > maxAge) return null
+
+    // Check version - invalidate if major.minor changed
+    const currentVersion = getMajorMinorVersion()
+    if (version !== currentVersion) return null
 
     return calendarId
   } catch {
@@ -61,7 +89,7 @@ export async function setSessionCookie(calendarId: string): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 365 * 24 * 60 * 60, // 1 year
     path: '/'
   })
 }

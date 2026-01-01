@@ -5,6 +5,7 @@ import { DayCircle } from './DayCircle'
 import { DayModal } from './DayModal'
 import { CompactCalendar } from './CompactCalendar'
 import { SettingsModal } from './SettingsModal'
+import { StatsModal } from './StatsModal'
 import { Confetti } from './Confetti'
 import {
   DayEntry,
@@ -45,6 +46,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('months')
   const [showSettings, setShowSettings] = useState(false)
+  const [showStats, setShowStats] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const todayRef = useRef<HTMLButtonElement>(null)
 
@@ -225,6 +227,17 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
               </button>
             </div>
 
+            {/* Stats */}
+            <button
+              onClick={() => setShowStats(true)}
+              className="p-2 text-zinc-400 hover:text-white transition-colors"
+              title="Tilastot"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </button>
+
             {/* Settings */}
             <button
               onClick={() => setShowSettings(true)}
@@ -264,18 +277,23 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
             <div className="w-3 h-3 rounded-full bg-red-500" />
             <span className="text-zinc-400">{stats.red} punaista</span>
           </div>
-          {streakInfo.current > 0 && (
+          {/* Streaks */}
+          {(streakInfo.activity.current > 0 || streakInfo.current > 0) && (
             <div className="flex items-center gap-2 ml-4">
-              <span className="text-emerald-400 font-medium">
-                {streakInfo.current} päivän streak!
-              </span>
-            </div>
-          )}
-          {streakInfo.longest > streakInfo.current && (
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500">
-                (pisin: {streakInfo.longest})
-              </span>
+              <span className="text-zinc-500">Streakit:</span>
+              {streakInfo.activity.current > 0 && (
+                <span className="text-blue-400">
+                  {streakInfo.activity.current} merkintää
+                </span>
+              )}
+              {streakInfo.activity.current > 0 && streakInfo.current > 0 && (
+                <span className="text-zinc-600">|</span>
+              )}
+              {streakInfo.current > 0 && (
+                <span className="text-emerald-400">
+                  {streakInfo.current} vihreää
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -349,6 +367,14 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
           config={config}
           onSave={handleSettingsSave}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Stats Modal */}
+      {showStats && (
+        <StatsModal
+          calendarId={calendarId}
+          onClose={() => setShowStats(false)}
         />
       )}
 

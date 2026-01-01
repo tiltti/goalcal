@@ -50,6 +50,22 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   // Whether yellow zone is possible (green must be > 1)
   const yellowPossible = greenThreshold > 1
 
+  // Lock body scroll when modal is open (iOS compatible)
+  useEffect(() => {
+    const scrollY = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${scrollY}px`
+    document.body.style.left = '0'
+    document.body.style.right = '0'
+    return () => {
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      window.scrollTo(0, scrollY)
+    }
+  }, [])
+
   const handleAddGoal = () => {
     if (goals.length >= 10) return
     const newId = `g${Date.now()}`

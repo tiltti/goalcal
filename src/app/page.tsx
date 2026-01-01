@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import versionData from '@/version.json'
+import { SpaceInvaders } from '@/components/SpaceInvaders'
 
 export default function Home() {
   const [calendarId, setCalendarId] = useState('')
@@ -90,8 +91,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 safe-area-inset">
-      <div className="w-4/5 max-w-md mx-auto">
+    <main className="min-h-screen flex items-center justify-center p-4 safe-area-inset relative">
+      <SpaceInvaders />
+      <div className="w-4/5 max-w-md mx-auto relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white mb-2">2026</h1>
           <p className="text-zinc-400">Tavoitekalenteri</p>

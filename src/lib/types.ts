@@ -71,46 +71,57 @@ export function getGoalStatus(
 }
 
 // Streak calculation
-export interface StreakInfo {
+export interface SingleStreakInfo {
   current: number
+  currentStart: string | null
   longest: number
-  lastGreenDate: string | null
+  longestStart: string | null
+  longestEnd: string | null
 }
 
-export function calculateStreak(
-  entries: DayEntry[],
-  threshold: ColorThreshold,
-  today: Date
-): StreakInfo {
-  // Sort entries by date descending
-  const sorted = [...entries]
-    .filter(e => getGoalStatus(e, threshold) === 'green')
-    .sort((a, b) => b.date.localeCompare(a.date))
+export interface StreakInfo {
+  // Green streak (consecutive green days)
+  current: number
+  currentStart: string | null
+  longest: number
+  longestStart: string | null
+  longestEnd: string | null
+  lastGreenDate: string | null
+  // Activity streak (consecutive days with any entry)
+  activity: SingleStreakInfo
+}
 
-  if (sorted.length === 0) {
-    return { current: 0, longest: 0, lastGreenDate: null }
+// Helper function to calculate streak from sorted date list
+function calculateStreakFromDates(
+  sortedDates: string[],
+  today: Date
+): SingleStreakInfo {
+  if (sortedDates.length === 0) {
+    return { current: 0, currentStart: null, longest: 0, longestStart: null, longestEnd: null }
   }
 
   const todayStr = formatDate(today)
   const yesterdayStr = formatDate(new Date(today.getTime() - 86400000))
 
   let current = 0
+  let currentStart: string | null = null
   let longest = 0
+  let longestStart: string | null = null
+  let longestEnd: string | null = null
   let tempStreak = 1
+  let tempStreakEnd = sortedDates[0]
 
-  // Check if streak is active (today or yesterday is green)
-  const lastGreen = sorted[0].date
-  const isActive = lastGreen === todayStr || lastGreen === yesterdayStr
+  // Check if streak is active (today or yesterday has entry)
+  const lastDate = sortedDates[0]
+  const isActive = lastDate === todayStr || lastDate === yesterdayStr
 
   if (isActive) {
-    // Count backwards from the last green day
-    let expectedDate = new Date(lastGreen)
-    for (const entry of sorted) {
-      const entryDate = formatDate(new Date(entry.date))
+    let expectedDate = new Date(lastDate)
+    for (const dateStr of sortedDates) {
       const expected = formatDate(expectedDate)
-
-      if (entryDate === expected) {
+      if (dateStr === expected) {
         current++
+        currentStart = dateStr
         expectedDate = new Date(expectedDate.getTime() - 86400000)
       } else {
         break
@@ -119,29 +130,78 @@ export function calculateStreak(
   }
 
   // Calculate longest streak
-  for (let i = 0; i < sorted.length; i++) {
+  for (let i = 0; i < sortedDates.length; i++) {
     if (i === 0) {
       tempStreak = 1
+      tempStreakEnd = sortedDates[i]
       continue
     }
 
-    const prevDate = new Date(sorted[i - 1].date)
-    const currDate = new Date(sorted[i].date)
+    const prevDate = new Date(sortedDates[i - 1])
+    const currDate = new Date(sortedDates[i])
     const diffDays = (prevDate.getTime() - currDate.getTime()) / 86400000
 
     if (diffDays === 1) {
       tempStreak++
     } else {
-      longest = Math.max(longest, tempStreak)
+      if (tempStreak > longest) {
+        longest = tempStreak
+        longestEnd = tempStreakEnd
+        longestStart = sortedDates[i - 1]
+      }
       tempStreak = 1
+      tempStreakEnd = sortedDates[i]
     }
   }
-  longest = Math.max(longest, tempStreak, current)
+
+  // Check final streak
+  if (tempStreak > longest) {
+    longest = tempStreak
+    longestEnd = tempStreakEnd
+    longestStart = sortedDates[sortedDates.length - 1]
+  }
+
+  // If current streak is the longest
+  if (current > longest) {
+    longest = current
+    longestStart = currentStart
+    longestEnd = lastDate
+  } else if (current === longest && current > 0) {
+    longestStart = currentStart
+    longestEnd = lastDate
+  }
+
+  return { current, currentStart, longest, longestStart, longestEnd }
+}
+
+export function calculateStreak(
+  entries: DayEntry[],
+  threshold: ColorThreshold,
+  today: Date
+): StreakInfo {
+  // Green streak: only green days
+  const greenDates = entries
+    .filter(e => getGoalStatus(e, threshold) === 'green')
+    .map(e => e.date)
+    .sort((a, b) => b.localeCompare(a))
+
+  const greenStreak = calculateStreakFromDates(greenDates, today)
+
+  // Activity streak: any day with an entry
+  const activityDates = entries
+    .map(e => e.date)
+    .sort((a, b) => b.localeCompare(a))
+
+  const activityStreak = calculateStreakFromDates(activityDates, today)
 
   return {
-    current,
-    longest,
-    lastGreenDate: sorted[0]?.date || null
+    current: greenStreak.current,
+    currentStart: greenStreak.currentStart,
+    longest: greenStreak.longest,
+    longestStart: greenStreak.longestStart,
+    longestEnd: greenStreak.longestEnd,
+    lastGreenDate: greenDates[0] || null,
+    activity: activityStreak
   }
 }
 
