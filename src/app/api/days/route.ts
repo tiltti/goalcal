@@ -1,46 +1,91 @@
-import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { getYearEntries, saveDayEntry, getCalendarConfig } from '@/lib/dynamodb'
+import { getSessionCalendarId } from '@/lib/auth'
 
-// GET all days for a year
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString())
+  try {
+    const sessionCalendarId = await getSessionCalendarId()
+    const { searchParams } = new URL(request.url)
+    const calendarId = searchParams.get('calendarId')
 
-  const days = await prisma.dayEntry.findMany({
-    where: { year },
-    orderBy: { date: 'asc' },
-  })
+    if (!calendarId) {
+      return NextResponse.json({ error: 'calendarId vaaditaan' }, { status: 400 })
+    }
 
-  return NextResponse.json(days)
+    // Check authentication
+    if (sessionCalendarId !== calendarId) {
+      return NextResponse.json({ error: 'Ei oikeuksia' }, { status: 403 })
+    }
+
+    const config = await getCalendarConfig(calendarId)
+    if (!config) {
+      return NextResponse.json({ error: 'Kalenteria ei löydy' }, { status: 404 })
+    }
+
+    const entries = await getYearEntries(calendarId, config.year)
+
+    return NextResponse.json({
+      config: {
+        calendarId: config.calendarId,
+        name: config.name,
+        goals: config.goals,
+        colorThreshold: config.colorThreshold,
+        year: config.year
+      },
+      entries
+    })
+  } catch (error) {
+    console.error('GET days error:', error)
+    return NextResponse.json({ error: 'Virhe haettaessa päiviä' }, { status: 500 })
+  }
 }
 
-// POST/PUT - create or update a day
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-  const { date, noSubstances, exercise, writing } = body
+  try {
+    const sessionCalendarId = await getSessionCalendarId()
+    const { calendarId, date, goals } = await request.json()
 
-  const dateObj = new Date(date)
-  const year = dateObj.getFullYear()
-  const month = dateObj.getMonth() + 1
-  const day = dateObj.getDate()
+    if (!calendarId || !date) {
+      return NextResponse.json(
+        { error: 'calendarId ja date vaaditaan' },
+        { status: 400 }
+      )
+    }
 
-  const entry = await prisma.dayEntry.upsert({
-    where: { date: dateObj },
-    update: {
-      noSubstances,
-      exercise,
-      writing,
-    },
-    create: {
-      date: dateObj,
-      year,
-      month,
-      day,
-      noSubstances,
-      exercise,
-      writing,
-    },
-  })
+    // Check authentication
+    if (sessionCalendarId !== calendarId) {
+      return NextResponse.json({ error: 'Ei oikeuksia' }, { status: 403 })
+    }
 
-  return NextResponse.json(entry)
+    // Verify calendar exists
+    const config = await getCalendarConfig(calendarId)
+    if (!config) {
+      return NextResponse.json({ error: 'Kalenteria ei löydy' }, { status: 404 })
+    }
+
+    // Validate date is not in the future
+    const today = new Date()
+    const entryDate = new Date(date)
+    if (entryDate > today) {
+      return NextResponse.json(
+        { error: 'Tulevaisuuden päiviä ei voi merkitä' },
+        { status: 400 }
+      )
+    }
+
+    // Validate date is in the correct year
+    if (entryDate.getFullYear() !== config.year) {
+      return NextResponse.json(
+        { error: `Päivämäärän pitää olla vuonna ${config.year}` },
+        { status: 400 }
+      )
+    }
+
+    const entry = await saveDayEntry(calendarId, date, goals || {})
+
+    return NextResponse.json(entry)
+  } catch (error) {
+    console.error('POST days error:', error)
+    return NextResponse.json({ error: 'Virhe tallennettaessa' }, { status: 500 })
+  }
 }

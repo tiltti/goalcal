@@ -2,9 +2,50 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  height: -webkit-fill-available;
 }
 
 body {
   background: #09090b;
   color: #fafafa;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  overscroll-behavior: none;
+}
+
+/* iOS safe area padding */
+.safe-area-inset {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent pull-to-refresh on iOS but allow scrolling */
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch-friendly buttons */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Fix iOS input zoom */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* PWA standalone mode adjustments */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
 }

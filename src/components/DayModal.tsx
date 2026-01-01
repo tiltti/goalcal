@@ -1,83 +1,83 @@
 'use client'
 
-import { DayData, formatDateFi } from '@/lib/types'
 import { useState, useEffect } from 'react'
+import { DayEntry, Goal, ColorThreshold, formatDateFi, getGoalStatus } from '@/lib/types'
 
 interface DayModalProps {
   date: Date
-  data: DayData | null
-  onSave: (data: Omit<DayData, 'id'>) => void
+  entry: DayEntry | null
+  goals: Goal[]
+  threshold: ColorThreshold
+  onSave: (goals: Record<string, boolean>) => void
   onClose: () => void
 }
 
-export function DayModal({ date, data, onSave, onClose }: DayModalProps) {
-  const [noSubstances, setNoSubstances] = useState(data?.noSubstances ?? false)
-  const [exercise, setExercise] = useState(data?.exercise ?? false)
-  const [writing, setWriting] = useState(data?.writing ?? false)
+export function DayModal({ date, entry, goals, threshold, onSave, onClose }: DayModalProps) {
+  const [goalStates, setGoalStates] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    setNoSubstances(data?.noSubstances ?? false)
-    setExercise(data?.exercise ?? false)
-    setWriting(data?.writing ?? false)
-  }, [data])
+    const initial: Record<string, boolean> = {}
+    goals.forEach((g) => {
+      initial[g.id] = entry?.goals?.[g.id] ?? false
+    })
+    setGoalStates(initial)
+  }, [entry, goals])
+
+  const handleToggle = (goalId: string) => {
+    setGoalStates((prev) => ({
+      ...prev,
+      [goalId]: !prev[goalId]
+    }))
+  }
 
   const handleSave = () => {
-    onSave({
-      date: date.toISOString(),
-      year: date.getFullYear(),
-      month: date.getMonth() + 1,
-      day: date.getDate(),
-      noSubstances,
-      exercise,
-      writing,
-    })
+    onSave(goalStates)
     onClose()
   }
 
-  const goals = [
-    { key: 'noSubstances', label: 'Ei päihteitä', value: noSubstances, set: setNoSubstances },
-    { key: 'exercise', label: 'Liikunta', value: exercise, set: setExercise },
-    { key: 'writing', label: 'Kirjoittaminen', value: writing, set: setWriting },
-  ]
+  const completedCount = Object.values(goalStates).filter(Boolean).length
+  const status = getGoalStatus({ calendarId: '', date: '', goals: goalStates, updatedAt: '' }, threshold)
 
-  const completedCount = [noSubstances, exercise, writing].filter(Boolean).length
+  const statusLabel = status === 'green' ? 'Vihreä' : status === 'yellow' ? 'Keltainen' : status === 'red' ? 'Punainen' : ''
+  const statusColor = status === 'green' ? 'text-emerald-400' : status === 'yellow' ? 'text-yellow-400' : status === 'red' ? 'text-red-400' : 'text-zinc-400'
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-80 shadow-xl"
+        className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-sm shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-semibold text-white mb-1">{formatDateFi(date)}</h2>
         <p className="text-zinc-500 text-sm mb-4">
-          {completedCount}/3 tavoitetta
+          {completedCount}/{goals.length} tavoitetta
+          {statusLabel && <span className={`ml-2 ${statusColor}`}>({statusLabel})</span>}
         </p>
 
         <div className="space-y-3 mb-6">
           {goals.map((goal) => (
             <label
-              key={goal.key}
+              key={goal.id}
               className="flex items-center gap-3 cursor-pointer group"
             >
               <div
                 className={`
                   w-6 h-6 rounded-md border-2 flex items-center justify-center
                   transition-colors
-                  ${goal.value
+                  ${goalStates[goal.id]
                     ? 'bg-emerald-500 border-emerald-500'
                     : 'border-zinc-600 group-hover:border-zinc-400'
                   }
                 `}
-                onClick={() => goal.set(!goal.value)}
+                onClick={() => handleToggle(goal.id)}
               >
-                {goal.value && (
+                {goalStates[goal.id] && (
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
               </div>
-              <span className={`text-sm ${goal.value ? 'text-white' : 'text-zinc-400'}`}>
-                {goal.label}
+              <span className={`text-sm ${goalStates[goal.id] ? 'text-white' : 'text-zinc-400'}`}>
+                {goal.name}
               </span>
             </label>
           ))}

@@ -1,10 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DayCircle } from './DayCircle'
 import { DayModal } from './DayModal'
 import { CompactCalendar } from './CompactCalendar'
-import { DayData, getDaysInYear, formatDate, getGoalStatus } from '@/lib/types'
+import { SettingsModal } from './SettingsModal'
+import { Confetti } from './Confetti'
+import {
+  DayEntry,
+  Goal,
+  ColorThreshold,
+  getDaysInYear,
+  formatDate,
+  getGoalStatus,
+  calculateStreak
+} from '@/lib/types'
+import versionData from '@/version.json'
 
 const MONTHS = [
   'Tammi', 'Helmi', 'Maalis', 'Huhti', 'Touko', 'Kesä',
@@ -13,64 +24,156 @@ const MONTHS = [
 
 type ViewMode = 'months' | 'compact'
 
-export function YearCalendar({ year }: { year: number }) {
-  const [daysData, setDaysData] = useState<Record<string, DayData>>({})
+interface CalendarConfig {
+  calendarId: string
+  name: string
+  goals: Goal[]
+  colorThreshold: ColorThreshold
+  year: number
+}
+
+interface YearCalendarProps {
+  calendarId: string
+}
+
+const isDev = process.env.NODE_ENV === 'development'
+
+export function YearCalendar({ calendarId }: YearCalendarProps) {
+  const [config, setConfig] = useState<CalendarConfig | null>(null)
+  const [entries, setEntries] = useState<Record<string, DayEntry>>({})
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('months')
+  const [showSettings, setShowSettings] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const todayRef = useRef<HTMLButtonElement>(null)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  const year = config?.year || 2026
   const allDays = getDaysInYear(year)
 
-  // Ryhmittele kuukausittain
+  // Group by month
   const daysByMonth: Date[][] = Array.from({ length: 12 }, () => [])
   allDays.forEach((date) => {
     daysByMonth[date.getMonth()].push(date)
   })
 
-  const fetchDays = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/days?year=${year}`)
-      const data: DayData[] = await res.json()
-      const map: Record<string, DayData> = {}
-      data.forEach((d) => {
-        map[formatDate(new Date(d.date))] = d
+      const res = await fetch(`/api/days?calendarId=${calendarId}`)
+      if (!res.ok) {
+        if (res.status === 403) {
+          window.location.href = '/'
+          return
+        }
+        throw new Error('Failed to fetch')
+      }
+
+      const data = await res.json()
+      setConfig(data.config)
+
+      const map: Record<string, DayEntry> = {}
+      data.entries.forEach((e: DayEntry) => {
+        map[e.date] = e
       })
-      setDaysData(map)
+      setEntries(map)
     } catch (error) {
-      console.error('Failed to fetch days:', error)
+      console.error('Failed to fetch:', error)
     } finally {
       setLoading(false)
     }
-  }, [year])
+  }, [calendarId])
 
   useEffect(() => {
-    fetchDays()
-  }, [fetchDays])
+    fetchData()
+  }, [fetchData])
 
-  const handleSave = async (data: Omit<DayData, 'id'>) => {
+  // Scroll to today on load
+  useEffect(() => {
+    if (!loading && todayRef.current) {
+      todayRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [loading])
+
+  const handleSave = async (date: string, goals: Record<string, boolean>) => {
     try {
+      // Check old status before save
+      const oldEntry = entries[date]
+      const oldStatus = oldEntry ? getGoalStatus(oldEntry, threshold) : null
+
       const res = await fetch('/api/days', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ calendarId, date, goals }),
       })
+
+      if (!res.ok) throw new Error('Failed to save')
+
       const saved = await res.json()
-      setDaysData((prev) => ({
+
+      // Check new status
+      const newStatus = getGoalStatus(saved, threshold)
+
+      // Trigger confetti if became green!
+      if (newStatus === 'green' && oldStatus !== 'green') {
+        setShowConfetti(true)
+      }
+
+      setEntries((prev) => ({
         ...prev,
-        [formatDate(new Date(saved.date))]: saved,
+        [saved.date]: saved,
       }))
     } catch (error) {
       console.error('Failed to save:', error)
     }
   }
 
-  // Statistiikat
-  const stats = Object.values(daysData).reduce(
-    (acc, d) => {
-      const status = getGoalStatus(d)
+  const handleSettingsSave = async (updates: {
+    name?: string
+    goals?: Goal[]
+    colorThreshold?: ColorThreshold
+  }) => {
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarId, ...updates }),
+      })
+
+      if (!res.ok) throw new Error('Failed to save settings')
+
+      const updated = await res.json()
+      setConfig(updated)
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth', { method: 'DELETE' })
+      window.location.href = '/'
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
+  if (loading || !config) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-zinc-500">Ladataan...</div>
+      </div>
+    )
+  }
+
+  const threshold = config.colorThreshold
+
+  // Statistics
+  const stats = Object.values(entries).reduce(
+    (acc, e) => {
+      const status = getGoalStatus(e, threshold)
       if (status === 'green') acc.green++
       else if (status === 'yellow') acc.yellow++
       else if (status === 'red') acc.red++
@@ -79,57 +182,72 @@ export function YearCalendar({ year }: { year: number }) {
     { green: 0, yellow: 0, red: 0 }
   )
 
-  // Streak - peräkkäiset vihreät päivät
-  let streak = 0
-  const sortedDates = Object.keys(daysData).sort().reverse()
-  for (const dateStr of sortedDates) {
-    const status = getGoalStatus(daysData[dateStr])
-    if (status === 'green') streak++
-    else break
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-zinc-500">Ladataan...</div>
-      </div>
-    )
-  }
+  // Streak
+  const streakInfo = calculateStreak(Object.values(entries), threshold, today)
 
   return (
     <div className="min-h-screen bg-zinc-950 p-4 md:p-8">
-      {/* Otsikko ja statistiikat */}
+      {/* Header */}
       <div className="max-w-6xl mx-auto mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight">
-            {year}
-          </h1>
+          <div>
+            <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight">
+              {year}
+            </h1>
+            <p className="text-zinc-500 text-sm mt-1">{config.name}</p>
+          </div>
 
-          {/* Tab switcher */}
-          <div className="flex bg-zinc-900 rounded-lg p-1">
+          <div className="flex items-center gap-2">
+            {/* View switcher */}
+            <div className="flex bg-zinc-900 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('months')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                  viewMode === 'months'
+                    ? 'bg-zinc-700 text-white'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                Kuukaudet
+              </button>
+              <button
+                onClick={() => setViewMode('compact')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                  viewMode === 'compact'
+                    ? 'bg-zinc-700 text-white'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                1–365
+              </button>
+            </div>
+
+            {/* Settings */}
             <button
-              onClick={() => setViewMode('months')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                viewMode === 'months'
-                  ? 'bg-zinc-700 text-white'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              onClick={() => setShowSettings(true)}
+              className="p-2 text-zinc-400 hover:text-white transition-colors"
+              title="Asetukset"
             >
-              Kuukaudet
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </button>
+
+            {/* Logout */}
             <button
-              onClick={() => setViewMode('compact')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                viewMode === 'compact'
-                  ? 'bg-zinc-700 text-white'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              onClick={handleLogout}
+              className="p-2 text-zinc-400 hover:text-red-400 transition-colors"
+              title="Kirjaudu ulos"
             >
-              1–365
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
             </button>
           </div>
         </div>
 
+        {/* Stats */}
         <div className="flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-emerald-500" />
@@ -143,15 +261,24 @@ export function YearCalendar({ year }: { year: number }) {
             <div className="w-3 h-3 rounded-full bg-red-500" />
             <span className="text-zinc-400">{stats.red} punaista</span>
           </div>
-          {streak > 0 && (
+          {streakInfo.current > 0 && (
             <div className="flex items-center gap-2 ml-4">
-              <span className="text-emerald-400 font-medium">🔥 {streak} päivän putki</span>
+              <span className="text-emerald-400 font-medium">
+                {streakInfo.current} päivän streak!
+              </span>
+            </div>
+          )}
+          {streakInfo.longest > streakInfo.current && (
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-500">
+                (pisin: {streakInfo.longest})
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Näkymät */}
+      {/* Views */}
       {viewMode === 'months' ? (
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {daysByMonth.map((days, monthIndex) => (
@@ -168,11 +295,13 @@ export function YearCalendar({ year }: { year: number }) {
                   return (
                     <DayCircle
                       key={dateStr}
+                      ref={isToday ? todayRef : undefined}
                       date={date}
-                      data={daysData[dateStr] || null}
+                      entry={entries[dateStr] || null}
+                      threshold={threshold}
                       isToday={isToday}
                       isFuture={isFuture}
-                      onClick={() => !isFuture && setSelectedDate(date)}
+                      onClick={() => (!isFuture || isDev) && setSelectedDate(date)}
                     />
                   )
                 })}
@@ -183,23 +312,43 @@ export function YearCalendar({ year }: { year: number }) {
       ) : (
         <CompactCalendar
           year={year}
-          daysData={daysData}
+          entries={entries}
+          threshold={threshold}
           onDayClick={(date) => {
             const isFuture = date > today
-            if (!isFuture) setSelectedDate(date)
+            if (!isFuture || isDev) setSelectedDate(date)
           }}
         />
       )}
 
-      {/* Modal */}
+      {/* Version */}
+      <div className="max-w-6xl mx-auto mt-8 pb-8 text-center">
+        <span className="text-zinc-700 text-xs">v{versionData.version}</span>
+      </div>
+
+      {/* Day Modal */}
       {selectedDate && (
         <DayModal
           date={selectedDate}
-          data={daysData[formatDate(selectedDate)] || null}
-          onSave={handleSave}
+          entry={entries[formatDate(selectedDate)] || null}
+          goals={config.goals}
+          threshold={threshold}
+          onSave={(goals) => handleSave(formatDate(selectedDate), goals)}
           onClose={() => setSelectedDate(null)}
         />
       )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <SettingsModal
+          config={config}
+          onSave={handleSettingsSave}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Confetti celebration */}
+      <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
     </div>
   )
 }
