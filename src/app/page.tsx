@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import versionData from '@/version.json'
 
 export default function Home() {
   const [calendarId, setCalendarId] = useState('')
@@ -156,6 +157,10 @@ export default function Home() {
           >
             {loading ? 'Kirjaudutaan...' : 'Kirjaudu'}
           </button>
+
+          <div className="text-center mt-6">
+            <span className="text-zinc-700 text-xs">v{versionData.version}</span>
+          </div>
         </form>
       </div>
     </main>
