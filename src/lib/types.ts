@@ -4,6 +4,14 @@ export interface Goal {
   name: string
 }
 
+// Trackable: something to log that doesn't affect scoring
+export interface Trackable {
+  id: string
+  name: string
+  type: 'boolean' | 'number'
+  unit?: string // e.g., "tuntia", "km" for number types
+}
+
 export interface ColorThreshold {
   green: number  // >= this many goals = green
   yellow: number // >= this many goals = yellow (less than green)
@@ -15,6 +23,7 @@ export interface CalendarConfig {
   name: string
   passwordHash: string
   goals: Goal[]
+  trackables?: Trackable[]
   colorThreshold: ColorThreshold
   year: number
   createdAt: string
@@ -26,6 +35,7 @@ export interface DayEntry {
   calendarId: string
   date: string // YYYY-MM-DD
   goals: Record<string, boolean> // goalId -> completed
+  trackables?: Record<string, boolean | number> // trackableId -> value
   updatedAt: string
 }
 
@@ -36,6 +46,7 @@ export interface ConfigItem {
   name: string
   passwordHash: string
   goals: Goal[]
+  trackables?: Trackable[]
   colorThreshold: ColorThreshold
   year: number
   createdAt: string
@@ -47,6 +58,7 @@ export interface DayItem {
   entryType: string // DAY#YYYY-MM-DD
   date: string
   goals: Record<string, boolean>
+  trackables?: Record<string, boolean | number>
   updatedAt: string
 }
 

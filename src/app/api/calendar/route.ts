@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCalendarConfig, updateCalendarConfig } from '@/lib/dynamodb'
 import { getSessionCalendarId } from '@/lib/auth'
-import { Goal, ColorThreshold } from '@/lib/types'
+import { Goal, Trackable, ColorThreshold } from '@/lib/types'
 
 // Get calendar config (authenticated)
 export async function GET(request: NextRequest) {
@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       calendarId: config.calendarId,
       name: config.name,
       goals: config.goals,
+      trackables: config.trackables || [],
       colorThreshold: config.colorThreshold,
       year: config.year
     })
@@ -41,10 +42,11 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const sessionCalendarId = await getSessionCalendarId()
-    const { calendarId, name, goals, colorThreshold } = await request.json() as {
+    const { calendarId, name, goals, trackables, colorThreshold } = await request.json() as {
       calendarId: string
       name?: string
       goals?: Goal[]
+      trackables?: Trackable[]
       colorThreshold?: ColorThreshold
     }
 
@@ -75,6 +77,31 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Validate trackables if provided
+    if (trackables) {
+      if (!Array.isArray(trackables) || trackables.length > 10) {
+        return NextResponse.json(
+          { error: 'Seurattavia voi olla korkeintaan 10' },
+          { status: 400 }
+        )
+      }
+
+      for (const trackable of trackables) {
+        if (!trackable.id || !trackable.name || !trackable.type) {
+          return NextResponse.json(
+            { error: 'Jokaisella seurattavalla pitää olla id, nimi ja tyyppi' },
+            { status: 400 }
+          )
+        }
+        if (trackable.type !== 'boolean' && trackable.type !== 'number') {
+          return NextResponse.json(
+            { error: 'Seurattavan tyyppi pitää olla boolean tai number' },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     // Validate colorThreshold if provided
     if (colorThreshold) {
       if (typeof colorThreshold.green !== 'number' || typeof colorThreshold.yellow !== 'number') {
@@ -95,6 +122,7 @@ export async function PUT(request: NextRequest) {
     await updateCalendarConfig(calendarId, {
       ...(name && { name }),
       ...(goals && { goals }),
+      ...(trackables !== undefined && { trackables }),
       ...(colorThreshold && { colorThreshold })
     })
 
@@ -104,6 +132,7 @@ export async function PUT(request: NextRequest) {
       calendarId: updated!.calendarId,
       name: updated!.name,
       goals: updated!.goals,
+      trackables: updated!.trackables || [],
       colorThreshold: updated!.colorThreshold,
       year: updated!.year
     })

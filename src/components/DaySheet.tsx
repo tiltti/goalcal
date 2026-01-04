@@ -1,19 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DayEntry, Goal, ColorThreshold, formatDateFi, getGoalStatus } from '@/lib/types'
+import { DayEntry, Goal, Trackable, ColorThreshold, formatDateFi, getGoalStatus } from '@/lib/types'
 
 interface DaySheetProps {
   date: Date
   entry: DayEntry | null
   goals: Goal[]
+  trackables?: Trackable[]
   threshold: ColorThreshold
-  onSave: (goals: Record<string, boolean>) => void
+  onSave: (goals: Record<string, boolean>, trackables?: Record<string, boolean | number>) => void
   onClose: () => void
 }
 
-export function DaySheet({ date, entry, goals, threshold, onSave, onClose }: DaySheetProps) {
+export function DaySheet({ date, entry, goals, trackables = [], threshold, onSave, onClose }: DaySheetProps) {
   const [goalStates, setGoalStates] = useState<Record<string, boolean>>({})
+  const [trackableStates, setTrackableStates] = useState<Record<string, boolean | number>>({})
   const [isClosing, setIsClosing] = useState(false)
 
   // Lock body scroll
@@ -38,7 +40,15 @@ export function DaySheet({ date, entry, goals, threshold, onSave, onClose }: Day
       initial[g.id] = entry?.goals?.[g.id] ?? false
     })
     setGoalStates(initial)
-  }, [entry, goals])
+
+    // Initialize trackables
+    const initialTrackables: Record<string, boolean | number> = {}
+    trackables.forEach((t) => {
+      const existingValue = entry?.trackables?.[t.id]
+      initialTrackables[t.id] = existingValue ?? (t.type === 'boolean' ? false : 0)
+    })
+    setTrackableStates(initialTrackables)
+  }, [entry, goals, trackables])
 
   const handleToggle = (goalId: string) => {
     setGoalStates((prev) => ({
@@ -47,8 +57,22 @@ export function DaySheet({ date, entry, goals, threshold, onSave, onClose }: Day
     }))
   }
 
+  const handleTrackableToggle = (trackableId: string) => {
+    setTrackableStates((prev) => ({
+      ...prev,
+      [trackableId]: !prev[trackableId]
+    }))
+  }
+
+  const handleTrackableNumber = (trackableId: string, value: number) => {
+    setTrackableStates((prev) => ({
+      ...prev,
+      [trackableId]: value
+    }))
+  }
+
   const handleSave = () => {
-    onSave(goalStates)
+    onSave(goalStates, trackables.length > 0 ? trackableStates : undefined)
     handleClose()
   }
 
@@ -94,7 +118,7 @@ export function DaySheet({ date, entry, goals, threshold, onSave, onClose }: Day
           </div>
 
           {/* Goals */}
-          <div className="space-y-3 mb-8">
+          <div className="space-y-3 mb-6">
             {goals.map((goal) => (
               <button
                 key={goal.id}
@@ -123,6 +147,59 @@ export function DaySheet({ date, entry, goals, threshold, onSave, onClose }: Day
               </button>
             ))}
           </div>
+
+          {/* Trackables */}
+          {trackables.length > 0 && (
+            <div className="border-t border-zinc-700 pt-4 mb-6">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Seurattavat</p>
+              <div className="space-y-3">
+                {trackables.map((trackable) => (
+                  <div key={trackable.id}>
+                    {trackable.type === 'boolean' ? (
+                      <button
+                        onClick={() => handleTrackableToggle(trackable.id)}
+                        className="w-full flex items-center gap-4 p-4 bg-zinc-800/50 rounded-xl active:bg-zinc-800 transition-colors"
+                      >
+                        <div
+                          className={`
+                            w-7 h-7 rounded-lg border-2 flex items-center justify-center
+                            transition-colors flex-shrink-0
+                            ${trackableStates[trackable.id]
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'border-zinc-600'
+                            }
+                          `}
+                        >
+                          {trackableStates[trackable.id] && (
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className={`text-lg ${trackableStates[trackable.id] ? 'text-white' : 'text-zinc-400'}`}>
+                          {trackable.name}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-4 p-4 bg-zinc-800/50 rounded-xl">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={trackableStates[trackable.id] as number || 0}
+                          onChange={(e) => handleTrackableNumber(trackable.id, parseFloat(e.target.value) || 0)}
+                          className="w-20 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white text-lg text-center"
+                        />
+                        <span className="text-lg text-zinc-400">
+                          {trackable.name}
+                          {trackable.unit && <span className="text-zinc-500 ml-1">({trackable.unit})</span>}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pb-6">

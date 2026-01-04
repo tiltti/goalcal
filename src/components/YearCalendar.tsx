@@ -16,6 +16,7 @@ import { clearSessionBackup } from '@/hooks/useSessionBackup'
 import {
   DayEntry,
   Goal,
+  Trackable,
   ColorThreshold,
   getDaysInYear,
   formatDate,
@@ -36,6 +37,7 @@ interface CalendarConfig {
   calendarId: string
   name: string
   goals: Goal[]
+  trackables: Trackable[]
   colorThreshold: ColorThreshold
   year: number
 }
@@ -108,7 +110,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
     }
   }, [loading])
 
-  const handleSave = async (date: string, goals: Record<string, boolean>) => {
+  const handleSave = async (date: string, goals: Record<string, boolean>, trackables?: Record<string, boolean | number>) => {
     if (!config) return
 
     try {
@@ -120,7 +122,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
       const res = await fetch('/api/days', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calendarId, date, goals }),
+        body: JSON.stringify({ calendarId, date, goals, trackables }),
       })
 
       if (!res.ok) throw new Error('Failed to save')
@@ -147,6 +149,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   const handleSettingsSave = async (updates: {
     name?: string
     goals?: Goal[]
+    trackables?: Trackable[]
     colorThreshold?: ColorThreshold
   }) => {
     try {
@@ -427,8 +430,9 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
             date={selectedDate}
             entry={entries[formatDate(selectedDate)] || null}
             goals={config.goals}
+            trackables={config.trackables}
             threshold={threshold}
-            onSave={(goals) => handleSave(formatDate(selectedDate), goals)}
+            onSave={(goals, trackables) => handleSave(formatDate(selectedDate), goals, trackables)}
             onClose={() => setSelectedDate(null)}
           />
         ) : (
@@ -436,8 +440,9 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
             date={selectedDate}
             entry={entries[formatDate(selectedDate)] || null}
             goals={config.goals}
+            trackables={config.trackables}
             threshold={threshold}
-            onSave={(goals) => handleSave(formatDate(selectedDate), goals)}
+            onSave={(goals, trackables) => handleSave(formatDate(selectedDate), goals, trackables)}
             onClose={() => setSelectedDate(null)}
           />
         )

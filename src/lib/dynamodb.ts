@@ -194,6 +194,7 @@ export async function getDayEntry(
     calendarId: item.calendarId,
     date: item.date,
     goals: item.goals,
+    trackables: item.trackables,
     updatedAt: item.updatedAt
   }
 }
@@ -201,7 +202,8 @@ export async function getDayEntry(
 export async function saveDayEntry(
   calendarId: string,
   date: string,
-  goals: Record<string, boolean>
+  goals: Record<string, boolean>,
+  trackables?: Record<string, boolean | number>
 ): Promise<DayEntry> {
   const now = new Date().toISOString()
 
@@ -210,6 +212,7 @@ export async function saveDayEntry(
     entryType: `DAY#${date}`,
     date,
     goals,
+    trackables,
     updatedAt: now
   }
 
@@ -224,6 +227,7 @@ export async function saveDayEntry(
     calendarId: item.calendarId,
     date: item.date,
     goals: item.goals,
+    trackables: item.trackables,
     updatedAt: item.updatedAt
   }
 }
@@ -250,6 +254,7 @@ export async function getYearEntries(
       calendarId: day.calendarId,
       date: day.date,
       goals: day.goals,
+      trackables: day.trackables,
       updatedAt: day.updatedAt
     }
   })

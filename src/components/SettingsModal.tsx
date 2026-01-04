@@ -1,19 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Goal, ColorThreshold } from '@/lib/types'
+import { Goal, Trackable, ColorThreshold } from '@/lib/types'
 
 interface CalendarConfig {
   calendarId: string
   name: string
   goals: Goal[]
+  trackables: Trackable[]
   colorThreshold: ColorThreshold
   year: number
 }
 
 interface SettingsModalProps {
   config: CalendarConfig
-  onSave: (updates: { name?: string; goals?: Goal[]; colorThreshold?: ColorThreshold }) => void
+  onSave: (updates: { name?: string; goals?: Goal[]; trackables?: Trackable[]; colorThreshold?: ColorThreshold }) => void
   onClose: () => void
 }
 
@@ -22,6 +23,7 @@ const MIN_GOALS = 2
 export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   const [name, setName] = useState(config.name)
   const [goals, setGoals] = useState<Goal[]>(config.goals)
+  const [trackables, setTrackables] = useState<Trackable[]>(config.trackables || [])
   const [greenThreshold, setGreenThreshold] = useState(config.colorThreshold.green)
   const [yellowThreshold, setYellowThreshold] = useState(config.colorThreshold.yellow)
   const [saving, setSaving] = useState(false)
@@ -82,10 +84,31 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
     setGoals(goals.map((g) => (g.id === id ? { ...g, name: newName } : g)))
   }
 
+  // Trackable handlers
+  const handleAddTrackable = (type: 'boolean' | 'number') => {
+    if (trackables.length >= 10) return
+    const newId = `t${Date.now()}`
+    setTrackables([...trackables, { id: newId, name: '', type }])
+  }
+
+  const handleRemoveTrackable = (id: string) => {
+    setTrackables(trackables.filter((t) => t.id !== id))
+  }
+
+  const handleTrackableNameChange = (id: string, newName: string) => {
+    setTrackables(trackables.map((t) => (t.id === id ? { ...t, name: newName } : t)))
+  }
+
+  const handleTrackableUnitChange = (id: string, unit: string) => {
+    setTrackables(trackables.map((t) => (t.id === id ? { ...t, unit } : t)))
+  }
+
   const handleSave = async () => {
     // Validate: need at least MIN_GOALS with names
     const validGoals = goals.filter((g) => g.name.trim())
     if (validGoals.length < MIN_GOALS) return
+
+    const validTrackables = trackables.filter((t) => t.name.trim())
 
     // Ensure thresholds are valid
     const finalGreen = Math.max(1, Math.min(greenThreshold, validGoals.length))
@@ -97,6 +120,7 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
     await onSave({
       name: name.trim() || config.name,
       goals: validGoals,
+      trackables: validTrackables,
       colorThreshold: {
         green: finalGreen,
         yellow: finalYellow
@@ -162,6 +186,64 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
             >
               + Lisää tavoite
             </button>
+          )}
+        </div>
+
+        {/* Trackables */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-zinc-300 mb-1">
+            Seurattavat ({trackables.length}/10)
+          </label>
+          <p className="text-xs text-zinc-500 mb-2">
+            Eivät vaikuta päivän väriin.
+          </p>
+          <div className="space-y-2">
+            {trackables.map((trackable, index) => (
+              <div key={trackable.id} className="flex gap-2 items-center">
+                <div className={`w-3 h-3 rounded-full flex-shrink-0 ${trackable.type === 'boolean' ? 'bg-blue-500' : 'bg-purple-500'}`} />
+                <input
+                  type="text"
+                  value={trackable.name}
+                  onChange={(e) => handleTrackableNameChange(trackable.id, e.target.value)}
+                  placeholder={`Seurattava ${index + 1}`}
+                  className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                />
+                {trackable.type === 'number' && (
+                  <input
+                    type="text"
+                    value={trackable.unit || ''}
+                    onChange={(e) => handleTrackableUnitChange(trackable.id, e.target.value)}
+                    placeholder="yks."
+                    className="w-16 px-2 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                )}
+                <button
+                  onClick={() => handleRemoveTrackable(trackable.id)}
+                  className="px-2 py-2 text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+          {trackables.length < 10 && (
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => handleAddTrackable('boolean')}
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                + Kyllä/Ei
+              </button>
+              <span className="text-zinc-600">|</span>
+              <button
+                onClick={() => handleAddTrackable('number')}
+                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                + Numero
+              </button>
+            </div>
           )}
         </div>
 
