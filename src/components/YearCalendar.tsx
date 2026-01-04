@@ -244,6 +244,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
           {!isMobile && (
             <div className="flex items-center gap-2">
               {/* View switcher */}
+              <span className="text-zinc-500 text-sm">Näkymä:</span>
               <div className="flex bg-zinc-900 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('months')}
@@ -263,7 +264,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
-                  1–365
+                  Vuosi
                 </button>
               </div>
 
@@ -305,27 +306,30 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
 
           {/* Mobile view switcher */}
           {isMobile && (
-            <div className="flex bg-zinc-900 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('months')}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  viewMode === 'months'
-                    ? 'bg-zinc-700 text-white'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                Kuukaudet
-              </button>
-              <button
-                onClick={() => setViewMode('compact')}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  viewMode === 'compact'
-                    ? 'bg-zinc-700 text-white'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                1–365
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-500 text-sm">Näkymä:</span>
+              <div className="flex bg-zinc-900 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('months')}
+                  className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                    viewMode === 'months'
+                      ? 'bg-zinc-700 text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Kuukaudet
+                </button>
+                <button
+                  onClick={() => setViewMode('compact')}
+                  className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                    viewMode === 'compact'
+                      ? 'bg-zinc-700 text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Vuosi
+                </button>
+              </div>
             </div>
           )}
         </div>
