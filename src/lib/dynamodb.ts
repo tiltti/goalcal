@@ -123,6 +123,7 @@ export async function updateCalendarConfig(
     name: updates.name || existing.name,
     passwordHash: updates.passwordHash || existing.passwordHash,
     goals: updates.goals || existing.goals,
+    trackables: updates.trackables !== undefined ? updates.trackables : existing.trackables,
     colorThreshold: updates.colorThreshold || existing.colorThreshold,
     year: updates.year || existing.year,
     createdAt: existing.createdAt,
