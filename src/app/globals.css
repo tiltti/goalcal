@@ -49,3 +49,13 @@ input, select, textarea {
     padding-top: env(safe-area-inset-top);
   }
 }
+
+/* Bottom safe area for bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile bottom nav spacing */
+.mb-bottom-nav {
+  margin-bottom: calc(4rem + env(safe-area-inset-bottom));
+}

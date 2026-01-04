@@ -4,31 +4,46 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import versionData from '@/version.json'
 import { SpaceInvaders } from '@/components/SpaceInvaders'
+import { saveSessionBackup, tryRestoreSession } from '@/hooks/useSessionBackup'
 
 export default function Home() {
   const [calendarId, setCalendarId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
   const router = useRouter()
 
-  // Try to auto-fill from saved credentials
+  // Try to restore session from localStorage backup (for iOS Safari)
   useEffect(() => {
-    if ('credentials' in navigator && 'PasswordCredential' in window) {
-      navigator.credentials.get({
-        password: true,
-        mediation: 'optional'
-      } as CredentialRequestOptions).then((credential) => {
-        if (credential && 'password' in credential) {
-          const pwCred = credential as PasswordCredential
-          setCalendarId(pwCred.id)
-          setPassword(pwCred.password || '')
+    const restoreSession = async () => {
+      const restoredCalendarId = await tryRestoreSession()
+      if (restoredCalendarId) {
+        // Session restored, redirect to calendar
+        router.push(`/${restoredCalendarId}`)
+        return
+      }
+      setCheckingSession(false)
+
+      // Then try to auto-fill from saved credentials
+      if ('credentials' in navigator && 'PasswordCredential' in window) {
+        try {
+          const credential = await navigator.credentials.get({
+            password: true,
+            mediation: 'optional'
+          } as CredentialRequestOptions)
+          if (credential && 'password' in credential) {
+            const pwCred = credential as PasswordCredential
+            setCalendarId(pwCred.id)
+            setPassword(pwCred.password || '')
+          }
+        } catch {
+          // Credential API not supported or denied
         }
-      }).catch(() => {
-        // Credential API not supported or denied
-      })
+      }
     }
-  }, [])
+    restoreSession()
+  }, [router])
 
   const saveCredentials = async (id: string, pw: string) => {
     if ('credentials' in navigator && 'PasswordCredential' in window) {
@@ -79,6 +94,11 @@ export default function Home() {
         return
       }
 
+      // Save session token to localStorage for iOS Safari backup
+      if (data.sessionToken) {
+        saveSessionBackup(data.sessionToken)
+      }
+
       // Save credentials for next time
       await saveCredentials(id, password)
 
@@ -88,6 +108,16 @@ export default function Home() {
       setError('Yhteysvirhe, yritä uudelleen')
       setLoading(false)
     }
+  }
+
+  // Show loading while checking for session restoration
+  if (checkingSession) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4 safe-area-inset relative">
+        <SpaceInvaders />
+        <div className="relative z-10 text-zinc-500">Ladataan...</div>
+      </main>
+    )
   }
 
   return (

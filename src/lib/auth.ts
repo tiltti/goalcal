@@ -81,8 +81,22 @@ export function verifySessionToken(token: string): string | null {
   }
 }
 
-export async function setSessionCookie(calendarId: string): Promise<void> {
+export async function setSessionCookie(calendarId: string): Promise<string> {
   const token = createSessionToken(calendarId)
+  const cookieStore = await cookies()
+
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 365 * 24 * 60 * 60, // 1 year
+    path: '/'
+  })
+
+  return token  // Return token for localStorage backup
+}
+
+export async function setSessionCookieFromToken(token: string): Promise<void> {
   const cookieStore = await cookies()
 
   cookieStore.set(SESSION_COOKIE, token, {
