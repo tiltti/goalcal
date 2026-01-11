@@ -93,25 +93,23 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Trackable tracking (skip sick days)
-      if (!entry.isSick) {
-        for (const trackable of trackables) {
-          // Check if trackable was active on this date
-          if (isTrackableActive(trackable, entry.date)) {
-            trackableStats[trackable.id].activeDays++
+      // Trackable tracking (include sick days - trackables are separate from goals)
+      for (const trackable of trackables) {
+        // Check if trackable was active on this date
+        if (isTrackableActive(trackable, entry.date)) {
+          trackableStats[trackable.id].activeDays++
 
-            // Check if it was recorded
-            if (entry.trackables && entry.trackables[trackable.id] !== undefined) {
-              const value = entry.trackables[trackable.id]
-              if (trackable.type === 'boolean') {
-                if (value === true) {
-                  trackableStats[trackable.id].recorded++
-                }
-              } else {
-                // number type - count as recorded if > 0
+          // Check if it was recorded
+          if (entry.trackables && entry.trackables[trackable.id] !== undefined) {
+            const value = entry.trackables[trackable.id]
+            if (trackable.type === 'boolean') {
+              if (value === true) {
                 trackableStats[trackable.id].recorded++
-                trackableStats[trackable.id].sum += Number(value) || 0
               }
+            } else {
+              // number type - count as recorded if > 0
+              trackableStats[trackable.id].recorded++
+              trackableStats[trackable.id].sum += Number(value) || 0
             }
           }
         }
