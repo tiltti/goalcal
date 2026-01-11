@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DayEntry, Goal, Trackable, ColorThreshold, formatDateFi, getGoalStatus } from '@/lib/types'
+import { DayEntry, Goal, Trackable, ColorThreshold, formatDateFiWithWeekday, getGoalStatus } from '@/lib/types'
 
 interface DayModalProps {
   date: Date
@@ -108,7 +108,7 @@ export function DayModal({ date, entry, goals, trackables = [], threshold, onSav
         className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-sm shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-semibold text-white mb-1">{formatDateFi(date)}</h2>
+        <h2 className="text-lg font-semibold text-white mb-1">{formatDateFiWithWeekday(date)}</h2>
         <p className="text-zinc-500 text-sm mb-4">
           {isSick ? (
             <span className={statusColor}>Sairaspäivä - tavoitteita ei lasketa</span>
@@ -148,7 +148,8 @@ export function DayModal({ date, entry, goals, trackables = [], threshold, onSav
         </button>
 
         {/* Goals */}
-        {!isSick && <div className="space-y-3 mb-6">
+        <div className={`space-y-3 mb-6 ${isSick ? 'opacity-70' : ''}`}>
+          {isSick && <p className="text-xs text-violet-400 mb-2">Tavoitteita ei lasketa sairaspäivänä</p>}
           {goals.map((goal) => (
             <label
               key={goal.id}
@@ -176,10 +177,10 @@ export function DayModal({ date, entry, goals, trackables = [], threshold, onSav
               </span>
             </label>
           ))}
-        </div>}
+        </div>
 
         {/* Trackables */}
-        {!isSick && trackables.length > 0 && (
+        {trackables.length > 0 && (
           <div className="border-t border-zinc-700 pt-4 mb-6">
             <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Seurattavat</p>
             <div className="space-y-3">

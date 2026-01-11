@@ -356,6 +356,13 @@ export function formatDateFi(date: Date): string {
   return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
 }
 
+const WEEKDAYS_FI = ['Sunnuntai', 'Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai']
+
+export function formatDateFiWithWeekday(date: Date): string {
+  const weekday = WEEKDAYS_FI[date.getDay()]
+  return `${weekday} ${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
+}
+
 export function parseDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number)
   return new Date(year, month - 1, day)

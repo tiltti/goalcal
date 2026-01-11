@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DayEntry, Goal, Trackable, ColorThreshold, formatDateFi, getGoalStatus } from '@/lib/types'
+import { DayEntry, Goal, Trackable, ColorThreshold, formatDateFiWithWeekday, getGoalStatus } from '@/lib/types'
 
 interface DayViewProps {
   date: Date
@@ -97,8 +97,8 @@ export function DayView({ date, entry, goals, trackables = [], threshold, onSave
 
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
-      {/* Header */}
-      <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 z-10">
+      {/* Header with safe area for notch/dynamic island */}
+      <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 pt-safe z-10">
         <div className="flex items-center justify-between">
           <button
             onClick={onClose}
@@ -108,7 +108,7 @@ export function DayView({ date, entry, goals, trackables = [], threshold, onSave
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-white">{formatDateFi(date)}</h1>
+          <h1 className="text-lg font-bold text-white">{formatDateFiWithWeekday(date)}</h1>
           <button
             onClick={handleSave}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors"
@@ -168,45 +168,43 @@ export function DayView({ date, entry, goals, trackables = [], threshold, onSave
           </section>
 
           {/* Goals */}
-          {!isSick && (
-            <section>
-              <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
-                Tavoitteet
-              </h3>
-              <div className="space-y-2">
-                {goals.map((goal) => (
-                  <button
-                    key={goal.id}
-                    onClick={() => handleToggle(goal.id)}
-                    className="w-full flex items-center gap-4 p-4 bg-zinc-800/50 rounded-xl active:bg-zinc-800 transition-colors"
+          <section>
+            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
+              Tavoitteet {isSick && <span className="text-violet-400 normal-case">(ei lasketa)</span>}
+            </h3>
+            <div className="space-y-2">
+              {goals.map((goal) => (
+                <button
+                  key={goal.id}
+                  onClick={() => handleToggle(goal.id)}
+                  className={`w-full flex items-center gap-4 p-4 bg-zinc-800/50 rounded-xl active:bg-zinc-800 transition-colors ${isSick ? 'opacity-70' : ''}`}
+                >
+                  <div
+                    className={`
+                      w-7 h-7 rounded-lg border-2 flex items-center justify-center
+                      transition-colors flex-shrink-0
+                      ${goalStates[goal.id]
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'border-zinc-600'
+                      }
+                    `}
                   >
-                    <div
-                      className={`
-                        w-7 h-7 rounded-lg border-2 flex items-center justify-center
-                        transition-colors flex-shrink-0
-                        ${goalStates[goal.id]
-                          ? 'bg-emerald-500 border-emerald-500'
-                          : 'border-zinc-600'
-                        }
-                      `}
-                    >
-                      {goalStates[goal.id] && (
-                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className={`text-lg ${goalStates[goal.id] ? 'text-white' : 'text-zinc-400'}`}>
-                      {goal.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
+                    {goalStates[goal.id] && (
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-lg ${goalStates[goal.id] ? 'text-white' : 'text-zinc-400'}`}>
+                    {goal.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
 
           {/* Trackables */}
-          {trackables.length > 0 && !isSick && (
+          {trackables.length > 0 && (
             <section>
               <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
                 Seurattavat

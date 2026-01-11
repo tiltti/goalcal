@@ -50,6 +50,11 @@ input, select, textarea {
   }
 }
 
+/* Top safe area for notch/dynamic island */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Bottom safe area for bottom nav */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
