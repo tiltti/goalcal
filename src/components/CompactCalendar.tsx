@@ -67,8 +67,8 @@ export function CompactCalendar({ year, entries, allGoals, threshold, onDayClick
               `}
             >
               {isSick ? (
-                <svg className="w-2.5 h-2.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                <svg className="w-2 h-2 md:w-3.5 md:h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd"/>
                 </svg>
               ) : dayOfYear}
               {hasNotes && !isSick && (

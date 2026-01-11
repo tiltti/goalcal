@@ -236,7 +236,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   if (isMobile && mobileView === 'stats') {
     return (
       <div className="min-h-screen bg-zinc-950 pb-20">
-        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 z-10">
+        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 pt-safe z-10">
           <h1 className="text-xl font-bold text-white">Tilastot</h1>
         </div>
         <StatsView calendarId={calendarId} />
@@ -249,7 +249,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   if (isMobile && mobileView === 'settings') {
     return (
       <div className="min-h-screen bg-zinc-950 pb-20">
-        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 z-10">
+        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-4 py-3 pt-safe z-10">
           <h1 className="text-xl font-bold text-white">Asetukset</h1>
         </div>
         <SettingsView config={config} onSave={handleSettingsSave} onLogout={handleLogout} />
@@ -260,7 +260,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   }
 
   return (
-    <div className={`min-h-screen bg-zinc-950 p-4 md:p-8 ${isMobile ? 'pb-24' : ''}`}>
+    <div className={`min-h-screen bg-zinc-950 p-4 md:p-8 ${isMobile ? 'pb-24 pt-safe' : ''}`}>
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
