@@ -1,10 +1,13 @@
 // Service Worker for 2026 Tavoitekalenteri PWA
 // Auto-updates on new deployments
 
-const CACHE_NAME = 'goalcal-v1';
+// Cache version - increment this to force cache refresh
+const CACHE_VERSION = 5;
+const CACHE_NAME = `goalcal-v${CACHE_VERSION}`;
 
-// Install - cache essential files
+// Install - immediately take over
 self.addEventListener('install', (event) => {
+  console.log('SW: Installing version', CACHE_VERSION);
   self.skipWaiting();
 });
 
