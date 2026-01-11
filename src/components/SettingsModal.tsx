@@ -77,6 +77,9 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   const handleRemoveGoal = (id: string) => {
     // Minimum 2 goals required
     if (goals.length <= MIN_GOALS) return
+    const goal = goals.find(g => g.id === id)
+    const name = goal?.name || 'tämä tavoite'
+    if (!window.confirm(`Haluatko varmasti poistaa tavoitteen "${name}"?`)) return
     setGoals(goals.filter((g) => g.id !== id))
   }
 
@@ -96,6 +99,9 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
   }
 
   const handleRemoveTrackable = (id: string) => {
+    const trackable = trackables.find(t => t.id === id)
+    const name = trackable?.name || 'tämä seurattava'
+    if (!window.confirm(`Haluatko varmasti poistaa seurattavan "${name}"?`)) return
     setTrackables(trackables.filter((t) => t.id !== id))
   }
 

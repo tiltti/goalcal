@@ -68,6 +68,9 @@ export function SettingsView({ config, onSave, onLogout }: SettingsViewProps) {
 
   const handleRemoveGoal = (id: string) => {
     if (goals.length <= MIN_GOALS) return
+    const goal = goals.find(g => g.id === id)
+    const name = goal?.name || 'tämä tavoite'
+    if (!window.confirm(`Haluatko varmasti poistaa tavoitteen "${name}"?`)) return
     setGoals(goals.filter((g) => g.id !== id))
   }
 
@@ -87,6 +90,9 @@ export function SettingsView({ config, onSave, onLogout }: SettingsViewProps) {
   }
 
   const handleRemoveTrackable = (id: string) => {
+    const trackable = trackables.find(t => t.id === id)
+    const name = trackable?.name || 'tämä seurattava'
+    if (!window.confirm(`Haluatko varmasti poistaa seurattavan "${name}"?`)) return
     setTrackables(trackables.filter((t) => t.id !== id))
   }
 
@@ -110,6 +116,9 @@ export function SettingsView({ config, onSave, onLogout }: SettingsViewProps) {
   }
 
   const handleRemoveYearlyGoal = (id: string) => {
+    const yg = yearlyGoals.find(y => y.id === id)
+    const name = yg?.name || 'tämä vuositavoite'
+    if (!window.confirm(`Haluatko varmasti poistaa vuositavoitteen "${name}"?`)) return
     setYearlyGoals(yearlyGoals.filter((yg) => yg.id !== id))
   }
 
