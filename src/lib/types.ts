@@ -2,6 +2,20 @@
 export interface Goal {
   id: string
   name: string
+  startDate?: string // YYYY-MM-DD, goal active from this date (inclusive)
+  endDate?: string   // YYYY-MM-DD, goal active until this date (inclusive)
+}
+
+// Check if a goal is active for a given date
+export function isGoalActive(goal: Goal, dateStr: string): boolean {
+  if (goal.startDate && dateStr < goal.startDate) return false
+  if (goal.endDate && dateStr > goal.endDate) return false
+  return true
+}
+
+// Filter goals that are active for a given date
+export function getActiveGoals(goals: Goal[], dateStr: string): Goal[] {
+  return goals.filter(g => isGoalActive(g, dateStr))
 }
 
 // Trackable: something to log that doesn't affect scoring
@@ -10,6 +24,29 @@ export interface Trackable {
   name: string
   type: 'boolean' | 'number'
   unit?: string // e.g., "tuntia", "km" for number types
+  startDate?: string // YYYY-MM-DD, trackable active from this date (inclusive)
+  endDate?: string   // YYYY-MM-DD, trackable active until this date (inclusive)
+}
+
+// Check if a trackable is active for a given date
+export function isTrackableActive(trackable: Trackable, dateStr: string): boolean {
+  if (trackable.startDate && dateStr < trackable.startDate) return false
+  if (trackable.endDate && dateStr > trackable.endDate) return false
+  return true
+}
+
+// Filter trackables that are active for a given date
+export function getActiveTrackables(trackables: Trackable[], dateStr: string): Trackable[] {
+  return trackables.filter(t => isTrackableActive(t, dateStr))
+}
+
+// Yearly goal: one-time achievement for the year
+export interface YearlyGoal {
+  id: string
+  name: string
+  type: 'boolean' | 'count'
+  target?: number // for count type: target number to reach
+  current: number // for count type: current progress (0 for boolean = not done, 1 = done)
 }
 
 export interface ColorThreshold {
@@ -24,6 +61,7 @@ export interface CalendarConfig {
   passwordHash: string
   goals: Goal[]
   trackables?: Trackable[]
+  yearlyGoals?: YearlyGoal[]
   colorThreshold: ColorThreshold
   year: number
   createdAt: string
@@ -36,6 +74,8 @@ export interface DayEntry {
   date: string // YYYY-MM-DD
   goals: Record<string, boolean> // goalId -> completed
   trackables?: Record<string, boolean | number> // trackableId -> value
+  notes?: string // free-form notes for the day
+  isSick?: boolean // sick day - no goals counted, doesn't break streaks
   updatedAt: string
 }
 
@@ -47,6 +87,7 @@ export interface ConfigItem {
   passwordHash: string
   goals: Goal[]
   trackables?: Trackable[]
+  yearlyGoals?: YearlyGoal[]
   colorThreshold: ColorThreshold
   year: number
   createdAt: string
@@ -59,21 +100,38 @@ export interface DayItem {
   date: string
   goals: Record<string, boolean>
   trackables?: Record<string, boolean | number>
+  notes?: string
+  isSick?: boolean
   updatedAt: string
 }
 
 export type DynamoItem = ConfigItem | DayItem
 
 // Goal status for coloring
-export type GoalStatus = 'empty' | 'red' | 'yellow' | 'green'
+export type GoalStatus = 'empty' | 'red' | 'yellow' | 'green' | 'sick'
 
 export function getGoalStatus(
   entry: DayEntry | null,
-  threshold: ColorThreshold
+  threshold: ColorThreshold,
+  allGoals?: Goal[],
+  dateStr?: string
 ): GoalStatus {
   if (!entry || !entry.goals) return 'empty'
 
-  const completed = Object.values(entry.goals).filter(Boolean).length
+  // Check for sick day first
+  if (entry.isSick) return 'sick'
+
+  // If goals and date provided, only count active goals
+  let completed: number
+  if (allGoals && dateStr) {
+    const activeGoals = getActiveGoals(allGoals, dateStr)
+    const activeGoalIds = new Set(activeGoals.map(g => g.id))
+    completed = Object.entries(entry.goals)
+      .filter(([id, done]) => done && activeGoalIds.has(id))
+      .length
+  } else {
+    completed = Object.values(entry.goals).filter(Boolean).length
+  }
 
   if (completed >= threshold.green) return 'green'
   // yellow = 0 means "no yellow zone", skip directly to red
@@ -186,25 +244,82 @@ function calculateStreakFromDates(
   return { current, currentStart, longest, longestStart, longestEnd }
 }
 
+// Helper to calculate streak with sick days as "pass-through" (don't break streak)
+function calculateStreakWithSickDays(
+  qualifyingDates: string[],
+  sickDates: Set<string>,
+  today: Date
+): SingleStreakInfo {
+  if (qualifyingDates.length === 0) {
+    return { current: 0, currentStart: null, longest: 0, longestStart: null, longestEnd: null }
+  }
+
+  const todayStr = formatDate(today)
+  const qualifyingSet = new Set(qualifyingDates)
+
+  // Calculate current streak - walk backwards from today
+  // Count consecutive qualifying days, treating sick days as "bridges"
+  let current = 0
+  let currentStart: string | null = null
+  let checkDate = new Date(today)
+
+  while (true) {
+    const dateStr = formatDate(checkDate)
+    if (qualifyingSet.has(dateStr)) {
+      current++
+      currentStart = dateStr
+      checkDate = new Date(checkDate.getTime() - 86400000)
+    } else if (sickDates.has(dateStr)) {
+      // Sick day - skip it but don't break streak
+      checkDate = new Date(checkDate.getTime() - 86400000)
+    } else {
+      // Not qualifying and not sick - streak breaks
+      break
+    }
+
+    // Don't go before the year started
+    if (checkDate.getFullYear() < today.getFullYear()) break
+  }
+
+  // Calculate longest streak (simplified - just use regular calculation)
+  // For longest, we can use the basic method since sick days in the middle
+  // are complex to track historically
+  const basicStreak = calculateStreakFromDates(qualifyingDates.sort((a, b) => b.localeCompare(a)), today)
+
+  return {
+    current,
+    currentStart,
+    longest: Math.max(current, basicStreak.longest),
+    longestStart: current >= basicStreak.longest ? currentStart : basicStreak.longestStart,
+    longestEnd: current >= basicStreak.longest ? todayStr : basicStreak.longestEnd
+  }
+}
+
 export function calculateStreak(
   entries: DayEntry[],
   threshold: ColorThreshold,
   today: Date
 ): StreakInfo {
-  // Green streak: only green days
+  // Get sick day dates
+  const sickDates = new Set(
+    entries.filter(e => e.isSick).map(e => e.date)
+  )
+
+  // Green streak: only green days (sick days bridge the gap)
   const greenDates = entries
     .filter(e => getGoalStatus(e, threshold) === 'green')
     .map(e => e.date)
     .sort((a, b) => b.localeCompare(a))
 
-  const greenStreak = calculateStreakFromDates(greenDates, today)
+  const greenStreak = calculateStreakWithSickDays(greenDates, sickDates, today)
 
-  // Activity streak: any day with an entry
+  // Activity streak: any day with an entry (excluding sick days from count but they bridge)
   const activityDates = entries
+    .filter(e => !e.isSick) // Don't count sick days in activity
     .map(e => e.date)
     .sort((a, b) => b.localeCompare(a))
 
-  const activityStreak = calculateStreakFromDates(activityDates, today)
+  const activityStreak = calculateStreakWithSickDays(activityDates, sickDates, today)
 
   return {
     current: greenStreak.current,

@@ -1,6 +1,6 @@
 'use client'
 
-type View = 'calendar' | 'stats' | 'settings'
+type View = 'calendar' | 'stats' | 'settings' | 'day'
 
 interface BottomNavProps {
   currentView: View

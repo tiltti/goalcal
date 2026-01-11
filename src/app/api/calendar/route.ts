@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCalendarConfig, updateCalendarConfig } from '@/lib/dynamodb'
 import { getSessionCalendarId } from '@/lib/auth'
-import { Goal, Trackable, ColorThreshold } from '@/lib/types'
+import { Goal, Trackable, YearlyGoal, ColorThreshold } from '@/lib/types'
 
 // Get calendar config (authenticated)
 export async function GET(request: NextRequest) {
@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
       name: config.name,
       goals: config.goals,
       trackables: config.trackables || [],
+      yearlyGoals: config.yearlyGoals || [],
       colorThreshold: config.colorThreshold,
       year: config.year
     })
@@ -42,11 +43,12 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const sessionCalendarId = await getSessionCalendarId()
-    const { calendarId, name, goals, trackables, colorThreshold } = await request.json() as {
+    const { calendarId, name, goals, trackables, yearlyGoals, colorThreshold } = await request.json() as {
       calendarId: string
       name?: string
       goals?: Goal[]
       trackables?: Trackable[]
+      yearlyGoals?: YearlyGoal[]
       colorThreshold?: ColorThreshold
     }
 
@@ -102,6 +104,31 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Validate yearlyGoals if provided
+    if (yearlyGoals) {
+      if (!Array.isArray(yearlyGoals) || yearlyGoals.length > 20) {
+        return NextResponse.json(
+          { error: 'Vuositavoitteita voi olla korkeintaan 20' },
+          { status: 400 }
+        )
+      }
+
+      for (const yg of yearlyGoals) {
+        if (!yg.id || !yg.name || !yg.type) {
+          return NextResponse.json(
+            { error: 'Jokaisella vuositavoitteella pitää olla id, nimi ja tyyppi' },
+            { status: 400 }
+          )
+        }
+        if (yg.type !== 'boolean' && yg.type !== 'count') {
+          return NextResponse.json(
+            { error: 'Vuositavoitteen tyyppi pitää olla boolean tai count' },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     // Validate colorThreshold if provided
     if (colorThreshold) {
       if (typeof colorThreshold.green !== 'number' || typeof colorThreshold.yellow !== 'number') {
@@ -123,6 +150,7 @@ export async function PUT(request: NextRequest) {
       ...(name && { name }),
       ...(goals && { goals }),
       ...(trackables !== undefined && { trackables }),
+      ...(yearlyGoals !== undefined && { yearlyGoals }),
       ...(colorThreshold && { colorThreshold })
     })
 
@@ -133,6 +161,7 @@ export async function PUT(request: NextRequest) {
       name: updated!.name,
       goals: updated!.goals,
       trackables: updated!.trackables || [],
+      yearlyGoals: updated!.yearlyGoals || [],
       colorThreshold: updated!.colorThreshold,
       year: updated!.year
     })

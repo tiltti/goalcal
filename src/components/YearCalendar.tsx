@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DayCircle } from './DayCircle'
 import { DayModal } from './DayModal'
-import { DaySheet } from './DaySheet'
+import { DayView } from './DayView'
 import { CompactCalendar } from './CompactCalendar'
 import { SettingsModal } from './SettingsModal'
 import { StatsModal } from './StatsModal'
@@ -17,10 +17,13 @@ import {
   DayEntry,
   Goal,
   Trackable,
+  YearlyGoal,
   ColorThreshold,
   getDaysInYear,
   formatDate,
   getGoalStatus,
+  getActiveGoals,
+  getActiveTrackables,
   calculateStreak
 } from '@/lib/types'
 import versionData from '@/version.json'
@@ -31,13 +34,14 @@ const MONTHS = [
 ]
 
 type ViewMode = 'months' | 'compact'
-type MobileView = 'calendar' | 'stats' | 'settings'
+type MobileView = 'calendar' | 'stats' | 'settings' | 'day'
 
 interface CalendarConfig {
   calendarId: string
   name: string
   goals: Goal[]
   trackables: Trackable[]
+  yearlyGoals: YearlyGoal[]
   colorThreshold: ColorThreshold
   year: number
 }
@@ -110,19 +114,19 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
     }
   }, [loading])
 
-  const handleSave = async (date: string, goals: Record<string, boolean>, trackables?: Record<string, boolean | number>) => {
+  const handleSave = async (date: string, goals: Record<string, boolean>, trackables?: Record<string, boolean | number>, notes?: string, isSick?: boolean) => {
     if (!config) return
 
     try {
       // Check old status before save
       const oldEntry = entries[date]
       const currentThreshold = config.colorThreshold
-      const oldStatus = oldEntry ? getGoalStatus(oldEntry, currentThreshold) : null
+      const oldStatus = oldEntry ? getGoalStatus(oldEntry, currentThreshold, config.goals, date) : null
 
       const res = await fetch('/api/days', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calendarId, date, goals, trackables }),
+        body: JSON.stringify({ calendarId, date, goals, trackables, notes, isSick }),
       })
 
       if (!res.ok) throw new Error('Failed to save')
@@ -130,7 +134,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
       const saved = await res.json()
 
       // Check new status
-      const newStatus = getGoalStatus(saved, currentThreshold)
+      const newStatus = getGoalStatus(saved, currentThreshold, config.goals, date)
 
       // Trigger confetti if became green!
       if (newStatus === 'green' && oldStatus !== 'green') {
@@ -150,6 +154,7 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
     name?: string
     goals?: Goal[]
     trackables?: Trackable[]
+    yearlyGoals?: YearlyGoal[]
     colorThreshold?: ColorThreshold
   }) => {
     try {
@@ -190,9 +195,9 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   const threshold = config.colorThreshold
 
   // Statistics
-  const stats = Object.values(entries).reduce(
-    (acc, e) => {
-      const status = getGoalStatus(e, threshold)
+  const stats = Object.entries(entries).reduce(
+    (acc, [dateStr, e]) => {
+      const status = getGoalStatus(e, threshold, config.goals, dateStr)
       if (status === 'green') acc.green++
       else if (status === 'yellow') acc.yellow++
       else if (status === 'red') acc.red++
@@ -205,6 +210,29 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
   const streakInfo = calculateStreak(Object.values(entries), threshold, today)
 
   // Mobile: Show full-screen views based on mobileView
+  if (isMobile && mobileView === 'day' && selectedDate) {
+    const dateStr = formatDate(selectedDate)
+    const activeGoals = getActiveGoals(config.goals, dateStr)
+    const activeTrackables = getActiveTrackables(config.trackables, dateStr)
+    return (
+      <>
+        <DayView
+          date={selectedDate}
+          entry={entries[dateStr] || null}
+          goals={activeGoals}
+          trackables={activeTrackables}
+          threshold={threshold}
+          onSave={(goals, trackables, notes, isSick) => handleSave(dateStr, goals, trackables, notes, isSick)}
+          onClose={() => {
+            setSelectedDate(null)
+            setMobileView('calendar')
+          }}
+        />
+        <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />
+      </>
+    )
+  }
+
   if (isMobile && mobileView === 'stats') {
     return (
       <div className="min-h-screen bg-zinc-950 pb-20">
@@ -392,12 +420,18 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
                       key={dateStr}
                       ref={isToday ? todayRef : undefined}
                       date={date}
+                      dateStr={dateStr}
                       entry={entries[dateStr] || null}
+                      allGoals={config.goals}
                       threshold={threshold}
-                      totalGoals={config.goals.length}
                       isToday={isToday}
                       isFuture={isFuture}
-                      onClick={() => (!isFuture || isDev) && setSelectedDate(date)}
+                      onClick={() => {
+                        if (!isFuture || isDev) {
+                          setSelectedDate(date)
+                          if (isMobile) setMobileView('day')
+                        }
+                      }}
                     />
                   )
                 })}
@@ -409,11 +443,14 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
         <CompactCalendar
           year={year}
           entries={entries}
+          allGoals={config.goals}
           threshold={threshold}
-          totalGoals={config.goals.length}
           onDayClick={(date) => {
             const isFuture = date > today
-            if (!isFuture || isDev) setSelectedDate(date)
+            if (!isFuture || isDev) {
+              setSelectedDate(date)
+              if (isMobile) setMobileView('day')
+            }
           }}
         />
       )}
@@ -423,30 +460,23 @@ export function YearCalendar({ calendarId }: YearCalendarProps) {
         <span className="text-zinc-700 text-xs">v{versionData.version}</span>
       </div>
 
-      {/* Day Modal/Sheet - use DaySheet on mobile, DayModal on desktop */}
-      {selectedDate && (
-        isMobile ? (
-          <DaySheet
-            date={selectedDate}
-            entry={entries[formatDate(selectedDate)] || null}
-            goals={config.goals}
-            trackables={config.trackables}
-            threshold={threshold}
-            onSave={(goals, trackables) => handleSave(formatDate(selectedDate), goals, trackables)}
-            onClose={() => setSelectedDate(null)}
-          />
-        ) : (
+      {/* Day Modal - desktop only (mobile uses full-screen DayView) */}
+      {!isMobile && selectedDate && (() => {
+        const dateStr = formatDate(selectedDate)
+        const activeGoals = getActiveGoals(config.goals, dateStr)
+        const activeTrackables = getActiveTrackables(config.trackables, dateStr)
+        return (
           <DayModal
             date={selectedDate}
-            entry={entries[formatDate(selectedDate)] || null}
-            goals={config.goals}
-            trackables={config.trackables}
+            entry={entries[dateStr] || null}
+            goals={activeGoals}
+            trackables={activeTrackables}
             threshold={threshold}
-            onSave={(goals, trackables) => handleSave(formatDate(selectedDate), goals, trackables)}
+            onSave={(goals, trackables, notes) => handleSave(dateStr, goals, trackables, notes)}
             onClose={() => setSelectedDate(null)}
           />
         )
-      )}
+      })()}
 
       {/* Desktop-only modals */}
       {!isMobile && showSettings && (

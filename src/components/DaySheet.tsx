@@ -9,13 +9,14 @@ interface DaySheetProps {
   goals: Goal[]
   trackables?: Trackable[]
   threshold: ColorThreshold
-  onSave: (goals: Record<string, boolean>, trackables?: Record<string, boolean | number>) => void
+  onSave: (goals: Record<string, boolean>, trackables?: Record<string, boolean | number>, notes?: string) => void
   onClose: () => void
 }
 
 export function DaySheet({ date, entry, goals, trackables = [], threshold, onSave, onClose }: DaySheetProps) {
   const [goalStates, setGoalStates] = useState<Record<string, boolean>>({})
   const [trackableStates, setTrackableStates] = useState<Record<string, boolean | number>>({})
+  const [notes, setNotes] = useState('')
   const [isClosing, setIsClosing] = useState(false)
 
   // Lock body scroll
@@ -48,6 +49,9 @@ export function DaySheet({ date, entry, goals, trackables = [], threshold, onSav
       initialTrackables[t.id] = existingValue ?? (t.type === 'boolean' ? false : 0)
     })
     setTrackableStates(initialTrackables)
+
+    // Initialize notes
+    setNotes(entry?.notes || '')
   }, [entry, goals, trackables])
 
   const handleToggle = (goalId: string) => {
@@ -72,7 +76,12 @@ export function DaySheet({ date, entry, goals, trackables = [], threshold, onSav
   }
 
   const handleSave = () => {
-    onSave(goalStates, trackables.length > 0 ? trackableStates : undefined)
+    const trimmedNotes = notes.trim()
+    onSave(
+      goalStates,
+      trackables.length > 0 ? trackableStates : undefined,
+      trimmedNotes || undefined
+    )
     handleClose()
   }
 
@@ -200,6 +209,18 @@ export function DaySheet({ date, entry, goals, trackables = [], threshold, onSav
               </div>
             </div>
           )}
+
+          {/* Notes */}
+          <div className="border-t border-zinc-700 pt-4 mb-6">
+            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Muistiinpanot</p>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Vapaamuotoiset muistiinpanot..."
+              className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-zinc-600 resize-none"
+              rows={3}
+            />
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pb-6">

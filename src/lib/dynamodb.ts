@@ -60,6 +60,8 @@ export async function getCalendarConfig(
     name: item.name,
     passwordHash: item.passwordHash,
     goals: item.goals,
+    trackables: item.trackables,
+    yearlyGoals: item.yearlyGoals,
     colorThreshold: item.colorThreshold,
     year: item.year,
     createdAt: item.createdAt,
@@ -124,6 +126,7 @@ export async function updateCalendarConfig(
     passwordHash: updates.passwordHash || existing.passwordHash,
     goals: updates.goals || existing.goals,
     trackables: updates.trackables !== undefined ? updates.trackables : existing.trackables,
+    yearlyGoals: updates.yearlyGoals !== undefined ? updates.yearlyGoals : existing.yearlyGoals,
     colorThreshold: updates.colorThreshold || existing.colorThreshold,
     year: updates.year || existing.year,
     createdAt: existing.createdAt,
@@ -165,6 +168,8 @@ export async function listCalendars(): Promise<CalendarConfig[]> {
       name: config.name,
       passwordHash: config.passwordHash,
       goals: config.goals,
+      trackables: config.trackables,
+      yearlyGoals: config.yearlyGoals,
       colorThreshold: config.colorThreshold,
       year: config.year,
       createdAt: config.createdAt,
@@ -196,6 +201,8 @@ export async function getDayEntry(
     date: item.date,
     goals: item.goals,
     trackables: item.trackables,
+    notes: item.notes,
+    isSick: item.isSick,
     updatedAt: item.updatedAt
   }
 }
@@ -204,7 +211,9 @@ export async function saveDayEntry(
   calendarId: string,
   date: string,
   goals: Record<string, boolean>,
-  trackables?: Record<string, boolean | number>
+  trackables?: Record<string, boolean | number>,
+  notes?: string,
+  isSick?: boolean
 ): Promise<DayEntry> {
   const now = new Date().toISOString()
 
@@ -214,6 +223,8 @@ export async function saveDayEntry(
     date,
     goals,
     trackables,
+    notes,
+    isSick,
     updatedAt: now
   }
 
@@ -229,6 +240,8 @@ export async function saveDayEntry(
     date: item.date,
     goals: item.goals,
     trackables: item.trackables,
+    notes: item.notes,
+    isSick: item.isSick,
     updatedAt: item.updatedAt
   }
 }
@@ -256,6 +269,8 @@ export async function getYearEntries(
       date: day.date,
       goals: day.goals,
       trackables: day.trackables,
+      notes: day.notes,
+      isSick: day.isSick,
       updatedAt: day.updatedAt
     }
   })

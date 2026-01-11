@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         name: config.name,
         goals: config.goals,
         trackables: config.trackables || [],
+        yearlyGoals: config.yearlyGoals || [],
         colorThreshold: config.colorThreshold,
         year: config.year
       },
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const sessionCalendarId = await getSessionCalendarId()
-    const { calendarId, date, goals, trackables } = await request.json()
+    const { calendarId, date, goals, trackables, notes, isSick } = await request.json()
 
     if (!calendarId || !date) {
       return NextResponse.json(
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const entry = await saveDayEntry(calendarId, date, goals || {}, trackables)
+    const entry = await saveDayEntry(calendarId, date, goals || {}, trackables, notes, isSick)
 
     return NextResponse.json(entry)
   } catch (error) {

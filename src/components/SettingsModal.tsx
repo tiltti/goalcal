@@ -84,6 +84,10 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
     setGoals(goals.map((g) => (g.id === id ? { ...g, name: newName } : g)))
   }
 
+  const handleGoalDateChange = (id: string, field: 'startDate' | 'endDate', value: string) => {
+    setGoals(goals.map((g) => (g.id === id ? { ...g, [field]: value || undefined } : g)))
+  }
+
   // Trackable handlers
   const handleAddTrackable = (type: 'boolean' | 'number') => {
     if (trackables.length >= 10) return
@@ -153,29 +157,51 @@ export function SettingsModal({ config, onSave, onClose }: SettingsModalProps) {
 
         {/* Goals */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-zinc-300 mb-2">
+          <label className="block text-sm font-medium text-zinc-300 mb-1">
             Tavoitteet ({goals.length}/10, min {MIN_GOALS})
           </label>
-          <div className="space-y-2">
+          <p className="text-xs text-zinc-500 mb-2">
+            Voit rajata tavoitteen aikavälille (valinnainen).
+          </p>
+          <div className="space-y-3">
             {goals.map((goal, index) => (
-              <div key={goal.id} className="flex gap-2">
-                <input
-                  type="text"
-                  value={goal.name}
-                  onChange={(e) => handleGoalNameChange(goal.id, e.target.value)}
-                  placeholder={`Tavoite ${index + 1}`}
-                  className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
-                />
-                {goals.length > MIN_GOALS && (
-                  <button
-                    onClick={() => handleRemoveGoal(goal.id)}
-                    className="px-3 py-2 text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+              <div key={goal.id} className="space-y-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={goal.name}
+                    onChange={(e) => handleGoalNameChange(goal.id, e.target.value)}
+                    placeholder={`Tavoite ${index + 1}`}
+                    className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white focus:outline-none focus:border-emerald-500"
+                  />
+                  {goals.length > MIN_GOALS && (
+                    <button
+                      onClick={() => handleRemoveGoal(goal.id)}
+                      className="px-3 py-2 text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2 text-xs">
+                  <input
+                    type="date"
+                    value={goal.startDate || ''}
+                    onChange={(e) => handleGoalDateChange(goal.id, 'startDate', e.target.value)}
+                    placeholder="Alku"
+                    className="px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white focus:outline-none focus:border-emerald-500"
+                  />
+                  <span className="text-zinc-500 self-center">–</span>
+                  <input
+                    type="date"
+                    value={goal.endDate || ''}
+                    onChange={(e) => handleGoalDateChange(goal.id, 'endDate', e.target.value)}
+                    placeholder="Loppu"
+                    className="px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
             ))}
           </div>

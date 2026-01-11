@@ -35,7 +35,19 @@ Asioita joita halutaan kirjata mutta jotka eivät vaikuta väreihin/pisteisiin.
 - [x] Trackables eivät vaikuta päivän väriin
 - [ ] Tilastoissa oma osio trackablesille (myöhemmin)
 
-### Vaihe 3: Aikasidonnaiset tavoitteet
+### Vaihe 5: Päiväkohtaiset muistiinpanot - VALMIS v0.3.1
+Vapaamuotoinen teksti päivälle.
+
+**Käyttötapaukset:**
+- "Tänään oli hyvä päivä koska..."
+- "Huomioita: ..."
+
+**Toteutus:**
+- [x] DayEntry-tyypille: `notes?`: string
+- [x] Päivänäkymään tekstikenttä
+- [x] Sininen piste kalenterissa päiville joilla on muistiinpano
+
+### Vaihe 3: Aikasidonnaiset tavoitteet - VALMIS v0.4.0
 Tavoitteet jotka ovat aktiivisia vain tietyllä aikavälillä.
 
 **Käyttötapaukset:**
@@ -44,10 +56,10 @@ Tavoitteet jotka ovat aktiivisia vain tietyllä aikavälillä.
 - "Projekti X" vain Q1
 
 **Toteutus:**
-- [ ] Goal-tyypille lisäkentät: `startDate?`, `endDate?`
-- [ ] Päivänäkymä näyttää vain aktiiviset tavoitteet
-- [ ] Värilaskenta huomioi vain aktiiviset tavoitteet
-- [ ] Asetuksissa aikavälien hallinta
+- [x] Goal-tyypille lisäkentät: `startDate?`, `endDate?`
+- [x] Päivänäkymä näyttää vain aktiiviset tavoitteet
+- [x] Värilaskenta huomioi vain aktiiviset tavoitteet
+- [x] Asetuksissa aikavälien hallinta
 
 ### Vaihe 4: Vuositavoitteet
 Kertaluontoiset tavoitteet koko vuodelle (ei päivittäisiä).
@@ -62,45 +74,11 @@ Kertaluontoiset tavoitteet koko vuodelle (ei päivittäisiä).
 - [ ] Oma näkymä vuositavoitteille (ehkä stats-sivulle?)
 - [ ] Edistymispalkki numeerisille tavoitteille
 
-### Vaihe 5: Päiväkohtaiset muistiinpanot
-Vapaamuotoinen teksti päivälle.
-
-**Käyttötapaukset:**
-- "Tänään oli hyvä päivä koska..."
-- "Huomioita: ..."
-
-**Toteutus:**
-- [ ] DayEntry-tyypille: `notes?`: string
-- [ ] Päivänäkymään tekstikenttä
-- [ ] Pitkän tekstin näyttö kalenterissa (ikoni?)
-
 ---
 
 ## Tietokantamuutokset
 
-### Nykyinen DayEntry
-```typescript
-interface DayEntry {
-  calendarId: string
-  date: string // "2026-01-15"
-  goals: Record<string, boolean>
-  updatedAt: string
-}
-```
-
-### Tuleva DayEntry (v0.4+)
-```typescript
-interface DayEntry {
-  calendarId: string
-  date: string
-  goals: Record<string, boolean>
-  trackables?: Record<string, boolean | number>
-  notes?: string
-  updatedAt: string
-}
-```
-
-### Tuleva CalendarConfig (v0.4+)
+### Nykyinen tyypit (v0.4.0)
 ```typescript
 interface Goal {
   id: string
@@ -108,6 +86,19 @@ interface Goal {
   startDate?: string // "2026-01-01"
   endDate?: string   // "2026-03-31"
 }
+
+interface DayEntry {
+  calendarId: string
+  date: string // "2026-01-15"
+  goals: Record<string, boolean>
+  trackables?: Record<string, boolean | number>
+  notes?: string
+  updatedAt: string
+}
+```
+
+### Tuleva (v0.5+)
+```typescript
 
 interface Trackable {
   id: string
@@ -139,9 +130,9 @@ interface CalendarConfig {
 
 ## Prioriteetti
 
-1. **Trackables** - Helpoin toteuttaa, heti hyödyllinen
-2. **Muistiinpanot** - Yksinkertainen lisäys
-3. **Aikasidonnaiset** - Vaatii UI-työtä asetuksiin
+1. ~~**Trackables** - Helpoin toteuttaa, heti hyödyllinen~~ VALMIS
+2. ~~**Muistiinpanot** - Yksinkertainen lisäys~~ VALMIS
+3. ~~**Aikasidonnaiset** - Vaatii UI-työtä asetuksiin~~ VALMIS
 4. **Vuositavoitteet** - Vaatii uuden näkymän
 
 ---

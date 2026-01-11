@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCalendarConfig, getYearEntries } from '@/lib/dynamodb'
-import { getGoalStatus, calculateStreak, parseDate } from '@/lib/types'
+import { getGoalStatus, calculateStreak, parseDate, isTrackableActive } from '@/lib/types'
 import { getSessionCalendarId } from '@/lib/auth'
 
 // Get detailed stats for a calendar
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       green: 0,
       yellow: 0,
       red: 0,
+      sick: 0,
       perfect: 0
     }
 
@@ -41,6 +42,13 @@ export async function GET(request: NextRequest) {
     const goalStats: Record<string, { completed: number; total: number }> = {}
     for (const goal of config.goals) {
       goalStats[goal.id] = { completed: 0, total: 0 }
+    }
+
+    // Trackable stats
+    const trackableStats: Record<string, { recorded: number; activeDays: number; sum: number }> = {}
+    const trackables = config.trackables || []
+    for (const trackable of trackables) {
+      trackableStats[trackable.id] = { recorded: 0, activeDays: 0, sum: 0 }
     }
 
     // Day of week stats (0 = Sunday, 1 = Monday, etc.)
@@ -52,30 +60,61 @@ export async function GET(request: NextRequest) {
     // Process entries
     for (const entry of entries) {
       const status = getGoalStatus(entry, config.colorThreshold)
-      if (status === 'green') overall.green++
+      if (status === 'sick') overall.sick++
+      else if (status === 'green') overall.green++
       else if (status === 'yellow') overall.yellow++
       else if (status === 'red') overall.red++
 
-      // Perfect day check
-      const completed = Object.values(entry.goals).filter(Boolean).length
-      if (completed === config.goals.length) overall.perfect++
+      // Perfect day check (skip sick days)
+      if (!entry.isSick) {
+        const completed = Object.values(entry.goals).filter(Boolean).length
+        if (completed === config.goals.length) overall.perfect++
+      }
 
-      // Per-goal tracking
-      for (const goal of config.goals) {
-        if (entry.goals[goal.id] !== undefined) {
-          goalStats[goal.id].total++
-          if (entry.goals[goal.id]) {
-            goalStats[goal.id].completed++
+      // Per-goal tracking (skip sick days)
+      if (!entry.isSick) {
+        for (const goal of config.goals) {
+          if (entry.goals[goal.id] !== undefined) {
+            goalStats[goal.id].total++
+            if (entry.goals[goal.id]) {
+              goalStats[goal.id].completed++
+            }
           }
         }
       }
 
-      // Weekday tracking
-      const date = parseDate(entry.date)
-      const weekday = date.getDay()
-      weekdayStats[weekday].total++
-      if (status === 'green') {
-        weekdayStats[weekday].green++
+      // Weekday tracking (skip sick days)
+      if (!entry.isSick) {
+        const date = parseDate(entry.date)
+        const weekday = date.getDay()
+        weekdayStats[weekday].total++
+        if (status === 'green') {
+          weekdayStats[weekday].green++
+        }
+      }
+
+      // Trackable tracking (skip sick days)
+      if (!entry.isSick) {
+        for (const trackable of trackables) {
+          // Check if trackable was active on this date
+          if (isTrackableActive(trackable, entry.date)) {
+            trackableStats[trackable.id].activeDays++
+
+            // Check if it was recorded
+            if (entry.trackables && entry.trackables[trackable.id] !== undefined) {
+              const value = entry.trackables[trackable.id]
+              if (trackable.type === 'boolean') {
+                if (value === true) {
+                  trackableStats[trackable.id].recorded++
+                }
+              } else {
+                // number type - count as recorded if > 0
+                trackableStats[trackable.id].recorded++
+                trackableStats[trackable.id].sum += Number(value) || 0
+              }
+            }
+          }
+        }
       }
     }
 
@@ -105,12 +144,28 @@ export async function GET(request: NextRequest) {
         : 0
     }))
 
+    // Format trackable stats
+    const trackablesWithStats = trackables.map(trackable => ({
+      id: trackable.id,
+      name: trackable.name,
+      type: trackable.type,
+      unit: trackable.unit,
+      recorded: trackableStats[trackable.id].recorded,
+      activeDays: trackableStats[trackable.id].activeDays,
+      sum: trackableStats[trackable.id].sum,
+      percentage: trackableStats[trackable.id].activeDays > 0
+        ? Math.round(trackableStats[trackable.id].recorded / trackableStats[trackable.id].activeDays * 100)
+        : 0
+    }))
+
     return NextResponse.json({
       calendarName: config.name,
       year: config.year,
       overall,
       streak: streakInfo,
       goals: goalsWithStats,
+      trackables: trackablesWithStats,
+      yearlyGoals: config.yearlyGoals || [],
       weekdays
     })
   } catch (error) {

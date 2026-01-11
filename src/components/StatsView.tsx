@@ -11,6 +11,25 @@ interface GoalStat {
   percentage: number
 }
 
+interface TrackableStat {
+  id: string
+  name: string
+  type: 'boolean' | 'number'
+  unit?: string
+  recorded: number
+  activeDays: number
+  sum: number
+  percentage: number
+}
+
+interface YearlyGoalStat {
+  id: string
+  name: string
+  type: 'boolean' | 'count'
+  target?: number
+  current: number
+}
+
 interface WeekdayStat {
   day: number
   name: string
@@ -35,6 +54,7 @@ interface StatsData {
     green: number
     yellow: number
     red: number
+    sick: number
     perfect: number
   }
   streak: {
@@ -46,6 +66,8 @@ interface StatsData {
     activity: SingleStreak
   }
   goals: GoalStat[]
+  trackables: TrackableStat[]
+  yearlyGoals: YearlyGoalStat[]
   weekdays: WeekdayStat[]
 }
 
@@ -161,6 +183,12 @@ export function StatsView({ calendarId }: StatsViewProps) {
                   <span>{stats.overall.perfect} täydellistä päivää</span>
                 </div>
               )}
+              {stats.overall.sick > 0 && (
+                <div className="flex items-center gap-2 text-violet-400">
+                  <div className="w-3 h-3 rounded-full bg-violet-500" />
+                  <span>{stats.overall.sick} sairaspäivää</span>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -255,6 +283,113 @@ export function StatsView({ calendarId }: StatsViewProps) {
           ))}
         </div>
       </section>
+
+      {/* Trackables stats */}
+      {stats.trackables && stats.trackables.length > 0 && (
+        <section>
+          <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
+            Seurattavat
+          </h3>
+          <div className="space-y-3">
+            {stats.trackables.map(trackable => (
+              <div key={trackable.id} className="bg-zinc-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${trackable.type === 'boolean' ? 'bg-blue-500' : 'bg-purple-500'}`} />
+                    <span className="text-zinc-200">{trackable.name}</span>
+                  </div>
+                  <span className="text-sm">
+                    {trackable.type === 'boolean' ? (
+                      <>
+                        <span className={trackable.percentage >= 70 ? 'text-blue-400' : trackable.percentage >= 40 ? 'text-yellow-400' : 'text-zinc-400'}>
+                          {trackable.percentage}%
+                        </span>
+                        <span className="text-zinc-500 ml-2">
+                          ({trackable.recorded}/{trackable.activeDays} pv)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-purple-400 font-medium">
+                          {trackable.sum}
+                        </span>
+                        {trackable.unit && (
+                          <span className="text-zinc-500 ml-1">{trackable.unit}</span>
+                        )}
+                        <span className="text-zinc-500 ml-2">
+                          ({trackable.recorded} kirjausta)
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                {trackable.type === 'boolean' && (
+                  <ProgressBar
+                    percentage={trackable.percentage}
+                    color={trackable.percentage >= 70 ? 'bg-blue-500' : trackable.percentage >= 40 ? 'bg-blue-400' : 'bg-blue-300'}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Yearly goals */}
+      {stats.yearlyGoals && stats.yearlyGoals.length > 0 && (
+        <section>
+          <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
+            Vuositavoitteet
+          </h3>
+          <div className="space-y-3">
+            {stats.yearlyGoals.map(yg => {
+              const isDone = yg.type === 'boolean' ? yg.current === 1 : (yg.target && yg.current >= yg.target)
+              const percentage = yg.type === 'count' && yg.target
+                ? Math.min(100, Math.round(yg.current / yg.target * 100))
+                : (yg.current === 1 ? 100 : 0)
+
+              return (
+                <div key={yg.id} className="bg-zinc-800/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${yg.type === 'boolean' ? 'bg-amber-500' : 'bg-cyan-500'}`} />
+                      <span className="text-zinc-200">{yg.name}</span>
+                    </div>
+                    <span className="text-sm">
+                      {yg.type === 'boolean' ? (
+                        <span className={isDone ? 'text-amber-400' : 'text-zinc-500'}>
+                          {isDone ? 'Tehty!' : 'Ei vielä'}
+                        </span>
+                      ) : (
+                        <>
+                          <span className={isDone ? 'text-cyan-400' : 'text-zinc-300'}>
+                            {yg.current}
+                          </span>
+                          {yg.target && (
+                            <span className="text-zinc-500"> / {yg.target}</span>
+                          )}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {yg.type === 'count' && yg.target && (
+                    <ProgressBar
+                      percentage={percentage}
+                      color={isDone ? 'bg-cyan-500' : 'bg-cyan-600'}
+                    />
+                  )}
+                  {yg.type === 'boolean' && (
+                    <ProgressBar
+                      percentage={percentage}
+                      color={isDone ? 'bg-amber-500' : 'bg-zinc-700'}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Weekday analysis */}
       {stats.overall.total > 0 && (
